@@ -1,0 +1,9 @@
+[project]
+name = "urbanprime-erp"
+version = "0.1.0"
+description = "ERP corporativo interno da Construtora UrbanPrime"
+requires-python = ">=3.12"
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["."]

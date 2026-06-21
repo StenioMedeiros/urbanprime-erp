@@ -1,0 +1,2 @@
+class UrbanPrimeError(Exception):
+    pass
