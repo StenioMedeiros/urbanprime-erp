@@ -113,6 +113,7 @@ from src.modules.financeiro.gestao_financeira.gestao_financeira_schema import (
     UtilizacaoFrotaCreate, UtilizacaoFrotaUpdate,
 )
 from src.modules.financeiro.gestao_financeira.gestao_financeira_service import GestaoFinanceiraService
+from src.ui.financial_dashboard import render_dashboard_trends, render_financial_area
 
 
 st.set_page_config(page_title="UrbanPrime ERP", page_icon="🏗️", layout="wide", initial_sidebar_state="expanded")
@@ -262,6 +263,7 @@ FK_CONFIG = {
 
 PAGES: dict[str, dict[str, Any]] = {
     "Dashboard": {"description": "Indicadores operacionais e financeiros em tempo real."},
+    "Area Financeira": {"description": "Faturamento, custos, rentabilidade, caixa e projeções em uma única área."},
     "Gestao Usuarios": {"description": "Crie usuarios internos vinculados a funcionarios e perfis."},
     "Gestao Perfis": {"description": "Administre perfis e permissoes de acesso."},
     "Auditoria": {"description": "Consulte os ultimos eventos criticos registrados no sistema."},
@@ -303,6 +305,7 @@ PAGES: dict[str, dict[str, Any]] = {
 }
 
 PAGE_TITLES = {
+    "Area Financeira": "Área financeira",
     "Gestao Usuarios": "Gestão de usuários", "Gestao Perfis": "Gestão de perfis",
     "Funcionarios": "Funcionários", "Agenda Visitas": "Agenda de visitas",
     "Revisoes Projeto": "Revisões de projeto", "Diarios Obra": "Diários de obra",
@@ -508,6 +511,7 @@ def sidebar_menu() -> str:
         list(PAGES.keys()),
         format_func=page_title,
         help="Escolha o módulo que deseja consultar ou atualizar.",
+        key="main_page",
     )
     st.sidebar.caption("Use a busca dentro de cada módulo para localizar registros por nome ou descrição.")
     st.sidebar.markdown("---")
@@ -529,20 +533,23 @@ def render_dashboard() -> None:
     st.write(PAGES["Dashboard"]["description"])
     db = get_db()
     try:
-        cols = st.columns(6)
-        cols[0].metric("Obras", safe_count(db, "SELECT COUNT(*) FROM obras"))
-        cols[1].metric("Contratos ativos", safe_count(db, "SELECT COUNT(*) FROM contratos WHERE status = 'ativo'"))
-        cols[2].metric("Pagar em aberto", safe_count(db, "SELECT COUNT(*) FROM contas_pagar WHERE status = 'em_aberto'"))
-        cols[3].metric("Receber em aberto", safe_count(db, "SELECT COUNT(*) FROM contas_receber WHERE status = 'em_aberto'"))
-        cols[4].metric("Estoque minimo", safe_count(db, "SELECT COUNT(*) FROM insumos WHERE quantidade_atual <= estoque_minimo"))
-        cols[5].metric("Usuarios ativos", safe_count(db, "SELECT COUNT(*) FROM usuarios WHERE ativo = true"))
+        first_row = st.columns(3)
+        first_row[0].metric("Obras", safe_count(db, "SELECT COUNT(*) FROM obras"))
+        first_row[1].metric("Contratos ativos", safe_count(db, "SELECT COUNT(*) FROM contratos WHERE status = 'ativo'"))
+        first_row[2].metric("Pagar em aberto", safe_count(db, "SELECT COUNT(*) FROM contas_pagar WHERE status = 'em_aberto'"))
+        second_row = st.columns(3)
+        second_row[0].metric("Receber em aberto", safe_count(db, "SELECT COUNT(*) FROM contas_receber WHERE status = 'em_aberto'"))
+        second_row[1].metric("Estoque mínimo", safe_count(db, "SELECT COUNT(*) FROM insumos WHERE quantidade_atual <= estoque_minimo"))
+        second_row[2].metric("Usuários ativos", safe_count(db, "SELECT COUNT(*) FROM usuarios WHERE ativo = true"))
         st.subheader("Fluxo principal")
-        flow_cols = st.columns(5)
-        flow_cols[0].metric("Clientes", safe_count(db, "SELECT COUNT(*) FROM clientes"))
-        flow_cols[1].metric("Contratos", safe_count(db, "SELECT COUNT(*) FROM contratos"))
-        flow_cols[2].metric("Projetos", safe_count(db, "SELECT COUNT(*) FROM projetos"))
-        flow_cols[3].metric("Obras", safe_count(db, "SELECT COUNT(*) FROM obras"))
-        flow_cols[4].metric("Orcamentos Base", safe_count(db, "SELECT COUNT(*) FROM orcamentos_base"))
+        flow_first = st.columns(3)
+        flow_first[0].metric("Clientes", safe_count(db, "SELECT COUNT(*) FROM clientes"))
+        flow_first[1].metric("Contratos", safe_count(db, "SELECT COUNT(*) FROM contratos"))
+        flow_first[2].metric("Projetos", safe_count(db, "SELECT COUNT(*) FROM projetos"))
+        flow_second = st.columns(2)
+        flow_second[0].metric("Obras", safe_count(db, "SELECT COUNT(*) FROM obras"))
+        flow_second[1].metric("Orçamentos-base", safe_count(db, "SELECT COUNT(*) FROM orcamentos_base"))
+        render_dashboard_trends(db)
         st.subheader("Atividades recentes")
         logs = db.query(LogAuditoria).order_by(LogAuditoria.created_at.desc()).limit(20).all()
         if logs:
@@ -809,6 +816,8 @@ def main() -> None:
     page_name = sidebar_menu()
     if page_name == "Dashboard":
         render_dashboard()
+    elif page_name == "Area Financeira":
+        render_financial_area()
     elif page_name == "Gestao Usuarios":
         render_users()
     elif page_name == "Gestao Perfis":
