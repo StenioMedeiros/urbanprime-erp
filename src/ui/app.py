@@ -1,8 +1,14 @@
 from __future__ import annotations
 
-from datetime import date, time
+from datetime import date, datetime, time
 from decimal import Decimal
+from pathlib import Path
 from typing import Any
+import sys
+
+PROJECT_ROOT = Path(__file__).resolve().parents[2]
+if str(PROJECT_ROOT) not in sys.path:
+    sys.path.insert(0, str(PROJECT_ROOT))
 
 import streamlit as st
 from sqlalchemy import func, text
@@ -89,7 +95,19 @@ from src.modules.rh.registro_ponto.registro_ponto_schema import RegistroPontoCre
 from src.modules.rh.registro_ponto.registro_ponto_service import RegistroPontoService
 
 
-st.set_page_config(page_title="UrbanPrime ERP", layout="wide")
+st.set_page_config(page_title="UrbanPrime ERP", page_icon="🏗️", layout="wide", initial_sidebar_state="expanded")
+st.markdown(
+    """
+    <style>
+    .block-container {padding-top: 2rem; padding-bottom: 3rem; max-width: 1500px;}
+    [data-testid="stSidebar"] {border-right: 1px solid #e5e7eb;}
+    [data-testid="stMetric"] {background: #ffffff; border: 1px solid #e5e7eb; padding: 1rem; border-radius: .75rem;}
+    .stButton > button, .stFormSubmitButton > button {border-radius: .55rem; font-weight: 600;}
+    h1, h2, h3 {letter-spacing: -.02em;}
+    </style>
+    """,
+    unsafe_allow_html=True,
+)
 
 
 STATUSES = [
@@ -120,20 +138,55 @@ FIELD_LABELS = {
     "contrato_id": "Contrato",
     "projeto_id": "Projeto",
     "obra_id": "Obra",
-    "funcionario_id": "Funcionario",
-    "responsavel_id": "Responsavel",
+    "funcionario_id": "Funcionário",
+    "responsavel_id": "Responsável",
     "solicitante_id": "Solicitante",
     "aprovado_por_id": "Aprovado por",
     "fornecedor_id": "Fornecedor",
     "ordem_compra_id": "Ordem de compra",
     "insumo_id": "Insumo",
-    "medicao_id": "Medicao",
+    "medicao_id": "Medição",
+    "usuario_id": "Usuário",
     "nome": "Nome",
-    "descricao": "Descricao",
+    "descricao": "Descrição",
     "status": "Status",
     "valor_total": "Valor total",
     "valor": "Valor",
     "data_vencimento": "Data de vencimento",
+    "cpf_cnpj": "CPF/CNPJ", "data_inicio": "Data de início", "data_fim": "Data de término",
+    "data_previsao_fim": "Previsão de término", "data_previsao_entrega": "Previsão de entrega",
+    "data_assinatura": "Data de assinatura", "data_visita": "Data da visita",
+    "razao_social": "Razão social", "nome_fantasia": "Nome fantasia",
+    "numero_contrato": "Número do contrato", "tipo_pessoa": "Tipo de pessoa",
+    "tipo_projeto": "Tipo de projeto", "data_registro": "Data do registro",
+    "valor_medido": "Valor medido", "data_medicao": "Data da medição",
+    "data_aprovacao": "Data da aprovação", "unidade_medida": "Unidade",
+    "quantidade_atual": "Quantidade atual", "estoque_minimo": "Estoque mínimo",
+    "valor_unitario": "Valor unitário", "data_movimentacao": "Data da movimentação",
+    "data_cotacao": "Data da cotação", "data_emissao": "Data de emissão",
+    "percentual_concluido": "Percentual concluído", "salario_base": "Salário-base",
+    "salario_bruto": "Salário bruto", "salario_liquido": "Salário líquido",
+    "data_admissao": "Data de admissão", "data_demissao": "Data de demissão",
+    "data_nascimento": "Data de nascimento", "email_corporativo": "E-mail corporativo",
+    "observacoes": "Observações", "observacao": "Observação", "ocorrencias": "Ocorrências",
+}
+
+HIDDEN_LIST_FIELDS = {
+    "id", "created_at", "updated_at", "senha_hash", "token_hash", "token_sessao_hash",
+    "dados_anteriores", "dados_novos", "user_agent", "ip_origem",
+}
+
+STATUS_LABELS = {
+    "ativo": "Ativo", "inativo": "Inativo", "planejada": "Planejada",
+    "em_andamento": "Em andamento", "concluida": "Concluída", "concluido": "Concluído",
+    "cancelado": "Cancelado", "cancelada": "Cancelada", "em_aberto": "Em aberto",
+    "pago": "Pago", "recebido": "Recebido", "pendente": "Pendente",
+    "aprovado": "Aprovado", "aprovada": "Aprovada", "aberto": "Aberto",
+    "aberta": "Aberta", "fechado": "Fechado", "vigente": "Vigente",
+    "disponivel": "Disponível", "em_uso": "Em uso", "agendada": "Agendada",
+    "realizada": "Realizada", "em_elaboracao": "Em elaboração", "em_revisao": "Em revisão",
+    "planejado": "Planejado", "faturada": "Faturada", "recebida": "Recebida",
+    "resolvido": "Resolvido", "em_atendimento": "Em atendimento", "recusada": "Recusada",
 }
 
 FK_CONFIG = {
@@ -149,6 +202,7 @@ FK_CONFIG = {
     "ordem_compra_id": (OrdemCompra, "numero"),
     "insumo_id": (Insumo, "nome"),
     "medicao_id": (Medicao, "competencia"),
+    "usuario_id": (Usuario, "username"),
 }
 
 
@@ -182,6 +236,18 @@ PAGES: dict[str, dict[str, Any]] = {
     "Folha Pagamento": {"model": FolhaPagamento, "service": FolhaPagamentoService(), "create": FolhaPagamentoCreate, "update": FolhaPagamentoUpdate, "description": "Folha de pagamento por competencia."},
 }
 
+PAGE_TITLES = {
+    "Gestao Usuarios": "Gestão de usuários", "Gestao Perfis": "Gestão de perfis",
+    "Funcionarios": "Funcionários", "Agenda Visitas": "Agenda de visitas",
+    "Revisoes Projeto": "Revisões de projeto", "Diarios Obra": "Diários de obra",
+    "Medicoes": "Medições", "Chamados Tecnicos": "Chamados técnicos",
+    "Orcamentos Base": "Orçamentos-base", "Contas Pagar": "Contas a pagar",
+    "Contas Receber": "Contas a receber", "Movimentacoes Estoque": "Movimentações de estoque",
+    "Cotacoes": "Cotações", "Ordens Compra": "Ordens de compra",
+    "Itens Ordem Compra": "Itens das ordens de compra", "Registro Ponto": "Registro de ponto",
+    "Folha Pagamento": "Folha de pagamento",
+}
+
 
 def get_db() -> Session:
     return SessionLocal()
@@ -209,6 +275,70 @@ def rows_as_dicts(rows: list[Any]) -> list[dict[str, Any]]:
             item[name] = str(value) if isinstance(value, Decimal) else value
         result.append(item)
     return result
+
+
+def page_title(page_name: str) -> str:
+    return PAGE_TITLES.get(page_name, page_name)
+
+
+def human_value(field: str, value: Any) -> Any:
+    if value is None:
+        return "—"
+    if field == "status":
+        return STATUS_LABELS.get(str(value), str(value).replace("_", " ").title())
+    if isinstance(value, datetime):
+        return value.strftime("%d/%m/%Y %H:%M")
+    if isinstance(value, date):
+        return value.strftime("%d/%m/%Y")
+    if isinstance(value, time):
+        return value.strftime("%H:%M")
+    if isinstance(value, Decimal):
+        if any(token in field for token in ("valor", "salario")):
+            return f"R$ {value:,.2f}".replace(",", "X").replace(".", ",").replace("X", ".")
+        return f"{value:,.2f}".replace(",", "X").replace(".", ",").replace("X", ".")
+    if isinstance(value, bool):
+        return "Sim" if value else "Não"
+    return value
+
+
+def fk_label_maps(db: Session, model: Any) -> dict[str, dict[int, str]]:
+    result: dict[str, dict[int, str]] = {}
+    for field in model_columns(model):
+        if field not in FK_CONFIG:
+            continue
+        related_model, label_field = FK_CONFIG[field]
+        result[field] = {
+            row.id: str(getattr(row, label_field, None) or getattr(row, "nome", None) or row.id)
+            for row in db.query(related_model).order_by(related_model.id).all()
+        }
+    return result
+
+
+def friendly_rows(db: Session, rows: list[Any]) -> list[dict[str, Any]]:
+    if not rows:
+        return []
+    model = type(rows[0])
+    related = fk_label_maps(db, model)
+    result = []
+    for row in rows:
+        item: dict[str, Any] = {}
+        for field in model_columns(model):
+            if field in HIDDEN_LIST_FIELDS:
+                continue
+            value = getattr(row, field)
+            if field in related:
+                value = related[field].get(value, "—")
+            item[label_for(field)] = human_value(field, value)
+        result.append(item)
+    return result
+
+
+def record_label(row: Any) -> str:
+    for field in ("nome", "razao_social", "numero_contrato", "numero", "identificacao", "titulo", "descricao", "competencia", "email"):
+        value = getattr(row, field, None)
+        if value:
+            return str(value)
+    return f"Registro {row.id}"
 
 
 def option_label(row: Any, label_field: str) -> str:
@@ -273,12 +403,14 @@ def safe_count(db: Session, sql: str) -> int:
 
 
 def login_screen() -> None:
-    st.title("UrbanPrime ERP")
-    st.caption("Acesso interno exclusivo para funcionarios da UrbanPrime.")
-    with st.form("login_form"):
-        username = st.text_input("Usuario")
-        password = st.text_input("Senha", type="password")
-        submitted = st.form_submit_button("Entrar")
+    left, center, right = st.columns([1, 1.15, 1])
+    with center:
+        st.title("🏗️ UrbanPrime ERP")
+        st.caption("Gestão integrada de obras, projetos e operações.")
+        with st.form("login_form"):
+            username = st.text_input("Usuário", placeholder="Digite seu usuário")
+            password = st.text_input("Senha", type="password", placeholder="Digite sua senha")
+            submitted = st.form_submit_button("Entrar no sistema", use_container_width=True)
     if submitted:
         db = get_db()
         try:
@@ -291,16 +423,24 @@ def login_screen() -> None:
             st.success("Login realizado com sucesso.")
             st.rerun()
         except Exception as exc:
-            st.error(f"Nao foi possivel entrar: {exc}")
+            st.error(f"Não foi possível entrar: {exc}")
         finally:
             db.close()
 
 
 def sidebar_menu() -> str:
-    st.sidebar.title("UrbanPrime ERP")
-    st.sidebar.caption(f"Usuario: {st.session_state.get('username', '')}")
-    selected = st.sidebar.radio("Menu", list(PAGES.keys()))
-    if st.sidebar.button("Sair"):
+    st.sidebar.title("🏗️ UrbanPrime ERP")
+    st.sidebar.caption(f"Acesso como **{st.session_state.get('username', '')}**")
+    st.sidebar.markdown("---")
+    selected = st.sidebar.selectbox(
+        "Acessar área",
+        list(PAGES.keys()),
+        format_func=page_title,
+        help="Escolha o módulo que deseja consultar ou atualizar.",
+    )
+    st.sidebar.caption("Use a busca dentro de cada módulo para localizar registros por nome ou descrição.")
+    st.sidebar.markdown("---")
+    if st.sidebar.button("Sair do sistema", use_container_width=True):
         st.session_state.clear()
         st.rerun()
     return selected
@@ -332,10 +472,10 @@ def render_dashboard() -> None:
         flow_cols[2].metric("Projetos", safe_count(db, "SELECT COUNT(*) FROM projetos"))
         flow_cols[3].metric("Obras", safe_count(db, "SELECT COUNT(*) FROM obras"))
         flow_cols[4].metric("Orcamentos Base", safe_count(db, "SELECT COUNT(*) FROM orcamentos_base"))
-        st.subheader("Ultimos logs de auditoria")
+        st.subheader("Atividades recentes")
         logs = db.query(LogAuditoria).order_by(LogAuditoria.created_at.desc()).limit(20).all()
         if logs:
-            st.dataframe(rows_as_dicts(logs), width="stretch", hide_index=True)
+            st.dataframe(friendly_rows(db, logs), width="stretch", hide_index=True)
         else:
             st.info("Nenhum registro encontrado.")
     except Exception as exc:
@@ -344,12 +484,37 @@ def render_dashboard() -> None:
         db.close()
 
 
-def render_listing(db: Session, cfg: dict[str, Any]) -> None:
-    rows = cfg["service"].list(db, skip=0, limit=500)
-    if rows:
-        st.dataframe(rows_as_dicts(rows), width="stretch", hide_index=True)
+def render_listing(db: Session, cfg: dict[str, Any], rows: list[Any]) -> None:
+    st.subheader("Consulte antes de abrir a lista")
+    st.caption("Pesquise por nome, descrição, número, cidade, responsável ou qualquer informação visível.")
+    search = st.text_input(
+        "O que você procura?",
+        placeholder="Ex.: residência em Heliópolis, galpão, Ana Paula...",
+        key=f"search_{cfg['model'].__tablename__}",
+    ).strip().casefold()
+    statuses = sorted({str(getattr(row, "status")) for row in rows if getattr(row, "status", None)})
+    selected_status = "Todos"
+    if statuses:
+        selected_status = st.selectbox(
+            "Situação",
+            ["Todos", *statuses],
+            format_func=lambda value: "Todas as situações" if value == "Todos" else STATUS_LABELS.get(value, value.replace("_", " ").title()),
+            key=f"status_{cfg['model'].__tablename__}",
+        )
+    display_rows = friendly_rows(db, rows)
+    filtered = []
+    for row, display in zip(rows, display_rows):
+        if selected_status != "Todos" and str(getattr(row, "status", "")) != selected_status:
+            continue
+        haystack = " ".join(str(value) for value in display.values()).casefold()
+        if search and search not in haystack:
+            continue
+        filtered.append(display)
+    st.caption(f"{len(filtered)} registro(s) encontrado(s) de {len(rows)} no total.")
+    if filtered:
+        st.dataframe(filtered, width="stretch", hide_index=True)
     else:
-        st.info("Nenhum registro encontrado.")
+        st.info("Nenhum registro corresponde à pesquisa. Tente outra palavra ou limpe os filtros.")
 
 
 def render_create_form(db: Session, cfg: dict[str, Any], page_name: str) -> None:
@@ -372,19 +537,21 @@ def render_create_form(db: Session, cfg: dict[str, Any], page_name: str) -> None
             st.error(f"Erro ao salvar: {exc}")
 
 
-def render_edit_form(db: Session, cfg: dict[str, Any], page_name: str) -> None:
+def render_edit_form(db: Session, cfg: dict[str, Any], page_name: str, rows: list[Any]) -> None:
     model = cfg["model"]
     update_schema = cfg["update"]
-    st.subheader("Consultar ou editar")
-    item_id = st.number_input("ID do registro", min_value=1, step=1, key=f"edit_id_{page_name}")
-    if st.button("Consultar por ID", key=f"lookup_{page_name}"):
-        st.session_state[f"selected_{page_name}"] = int(item_id)
-    selected_id = st.session_state.get(f"selected_{page_name}", int(item_id))
-    item = cfg["service"].get(db, int(selected_id)) if selected_id else None
-    if not item:
-        st.warning("Informe um ID existente para editar.")
+    st.subheader("Escolha pelo nome ou pela descrição")
+    if not rows:
+        st.info("Ainda não há registros disponíveis para edição.")
         return
-    st.caption(f"Editando registro ID {item.id}")
+    selected_id = st.selectbox(
+        "Registro",
+        [row.id for row in rows],
+        format_func=lambda item_id: next((record_label(row) for row in rows if row.id == item_id), str(item_id)),
+        key=f"edit_select_{page_name}",
+    )
+    item = next(row for row in rows if row.id == selected_id)
+    st.caption(f"Editando: {record_label(item)}")
     with st.form(f"edit_{page_name}_{item.id}"):
         payload: dict[str, Any] = {}
         for field in editable_columns(model):
@@ -402,19 +569,20 @@ def render_edit_form(db: Session, cfg: dict[str, Any], page_name: str) -> None:
 
 
 def render_crud_page(page_name: str, cfg: dict[str, Any]) -> None:
-    st.title(page_name)
+    st.title(page_title(page_name))
     st.write(cfg["description"])
-    if st.button("Atualizar / Recarregar", key=f"reload_{page_name}"):
+    if st.button("Atualizar dados", key=f"reload_{page_name}"):
         st.rerun()
     db = get_db()
     try:
-        st.subheader("Registros")
-        render_listing(db, cfg)
-        left, right = st.columns(2)
-        with left:
+        rows = cfg["service"].list(db, skip=0, limit=500)
+        consult_tab, create_tab, edit_tab = st.tabs(["🔎 Consultar", "➕ Cadastrar", "✏️ Editar"])
+        with consult_tab:
+            render_listing(db, cfg, rows)
+        with create_tab:
             render_create_form(db, cfg, page_name)
-        with right:
-            render_edit_form(db, cfg, page_name)
+        with edit_tab:
+            render_edit_form(db, cfg, page_name, rows)
     except Exception as exc:
         st.error(f"Erro ao carregar pagina: {exc}")
     finally:
@@ -422,7 +590,7 @@ def render_crud_page(page_name: str, cfg: dict[str, Any]) -> None:
 
 
 def render_users() -> None:
-    st.title("Gestao de Usuarios")
+    st.title("Gestão de usuários")
     st.write(PAGES["Gestao Usuarios"]["description"])
     db = get_db()
     try:
@@ -430,7 +598,11 @@ def render_users() -> None:
             st.rerun()
         rows = db.query(Usuario).order_by(Usuario.id.desc()).limit(500).all()
         if rows:
-            st.dataframe(rows_as_dicts(rows), width="stretch", hide_index=True)
+            search = st.text_input("Pesquisar usuário", placeholder="Digite o nome de usuário ou e-mail")
+            display = friendly_rows(db, rows)
+            if search:
+                display = [item for item in display if search.casefold() in " ".join(map(str, item.values())).casefold()]
+            st.dataframe(display, width="stretch", hide_index=True)
         else:
             st.info("Nenhum registro encontrado.")
         with st.form("create_user"):
@@ -478,7 +650,7 @@ def render_users() -> None:
 
 
 def render_profiles() -> None:
-    st.title("Gestao de Perfis")
+    st.title("Gestão de perfis")
     st.write(PAGES["Gestao Perfis"]["description"])
     db = get_db()
     try:
@@ -486,7 +658,7 @@ def render_profiles() -> None:
             st.rerun()
         profiles = db.query(Perfil).order_by(Perfil.id).all()
         if profiles:
-            st.dataframe(rows_as_dicts(profiles), width="stretch", hide_index=True)
+            st.dataframe(friendly_rows(db, profiles), width="stretch", hide_index=True)
         else:
             st.info("Nenhum registro encontrado.")
         with st.form("create_profile"):
@@ -538,7 +710,11 @@ def render_audit() -> None:
         st.metric("Total de logs", total)
         logs = db.query(LogAuditoria).order_by(LogAuditoria.created_at.desc()).limit(500).all()
         if logs:
-            st.dataframe(rows_as_dicts(logs), width="stretch", hide_index=True)
+            search = st.text_input("Pesquisar atividade", placeholder="Digite usuário, módulo, ação ou descrição")
+            display = friendly_rows(db, logs)
+            if search:
+                display = [item for item in display if search.casefold() in " ".join(map(str, item.values())).casefold()]
+            st.dataframe(display, width="stretch", hide_index=True)
         else:
             st.info("Nenhum registro encontrado.")
         with st.form("audit_lookup"):
