@@ -1,6 +1,6 @@
-from datetime import datetime
-from datetime import date, time
+from datetime import date, datetime
 from decimal import Decimal
+
 from pydantic import BaseModel, ConfigDict
 
 
@@ -8,7 +8,13 @@ class FrotaBase(BaseModel):
     identificacao: str
     tipo: str | None = None
     placa: str | None = None
-    status: str = 'disponivel'
+    marca: str | None = None
+    modelo: str | None = None
+    ano_fabricacao: int | None = None
+    data_aquisicao: date | None = None
+    valor_aquisicao: Decimal | None = None
+    horimetro_atual: Decimal | None = None
+    status: str = "disponivel"
     obra_id: int | None = None
 
 
@@ -18,10 +24,16 @@ class FrotaCreate(FrotaBase):
 
 class FrotaUpdate(BaseModel):
     identificacao: str | None = None
-    tipo: str | None | None = None
-    placa: str | None | None = None
+    tipo: str | None = None
+    placa: str | None = None
+    marca: str | None = None
+    modelo: str | None = None
+    ano_fabricacao: int | None = None
+    data_aquisicao: date | None = None
+    valor_aquisicao: Decimal | None = None
+    horimetro_atual: Decimal | None = None
     status: str | None = None
-    obra_id: int | None | None = None
+    obra_id: int | None = None
 
 
 class FrotaRead(FrotaBase):

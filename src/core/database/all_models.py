@@ -29,3 +29,18 @@ from src.modules.planejamento.frota.frota_model import Frota
 from src.modules.planejamento.cronograma.cronograma_model import Cronograma
 from src.modules.rh.folha_pagamento.folha_pagamento_model import FolhaPagamento
 from src.modules.rh.registro_ponto.registro_ponto_model import RegistroPonto
+from src.modules.financeiro.gestao_financeira.gestao_financeira_model import (
+    AbastecimentoFrota,
+    AlocacaoFuncionarioObra,
+    ApropriacaoCusto,
+    CategoriaFinanceira,
+    CentroCusto,
+    ContaBancaria,
+    Fatura,
+    HistoricoStatus,
+    ItemOrcamento,
+    ManutencaoFrota,
+    MetaIndicador,
+    MovimentacaoCaixa,
+    UtilizacaoFrota,
+)

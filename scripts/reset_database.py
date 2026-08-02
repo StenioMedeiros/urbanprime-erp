@@ -9,6 +9,10 @@ from src.core.config.settings import get_settings
 
 
 TABLES = [
+    "movimentacoes_caixa", "apropriacoes_custo", "alocacoes_funcionario_obra",
+    "utilizacoes_frota", "abastecimentos_frota", "manutencoes_frota",
+    "historicos_status", "metas_indicadores", "itens_orcamento", "faturas",
+    "contas_bancarias", "centros_custo", "categorias_financeiras",
     "registro_ponto", "folha_pagamento", "cronogramas", "frotas", "itens_ordem_compra",
     "ordens_compra", "cotacoes", "fornecedores", "movimentacoes_estoque", "insumos",
     "contas_receber", "contas_pagar", "orcamentos_base", "chamados_tecnicos", "medicoes",

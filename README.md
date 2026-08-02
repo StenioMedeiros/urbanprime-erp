@@ -52,9 +52,17 @@ pip install -r requirements.txt
 ```powershell
 alembic upgrade head
 python scripts/seed_database.py
+python scripts/seed_demo_data.py
+python scripts/seed_financial_data.py
 ```
 
-O DDL completo esta em `src/core/database/schema.sql` e os dados iniciais estao em `src/core/database/seed.sql`.
+O esquema-base da versao `0001` esta em `src/core/database/schema.sql` e os dados iniciais
+estao em `src/core/database/seed.sql`. O esquema vigente e obtido aplicando todas as migrations.
+
+As evolucoes posteriores do banco sao controladas pelas migrations em `alembic/versions`.
+O nucleo financeiro e analitico inclui categorias financeiras, centros de custo,
+contas bancarias, faturamento, caixa realizado, itens de orcamento, custos por obra,
+metas, historico de status, custos de frota e alocacao de equipes.
 
 ## Rodar Backend
 

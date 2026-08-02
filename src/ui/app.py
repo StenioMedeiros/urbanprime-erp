@@ -93,6 +93,26 @@ from src.modules.rh.funcionario.funcionario_service import FuncionarioService
 from src.modules.rh.registro_ponto.registro_ponto_model import RegistroPonto
 from src.modules.rh.registro_ponto.registro_ponto_schema import RegistroPontoCreate, RegistroPontoUpdate
 from src.modules.rh.registro_ponto.registro_ponto_service import RegistroPontoService
+from src.modules.financeiro.gestao_financeira.gestao_financeira_model import (
+    AbastecimentoFrota, AlocacaoFuncionarioObra, ApropriacaoCusto, CategoriaFinanceira,
+    CentroCusto, ContaBancaria, Fatura, ItemOrcamento, ManutencaoFrota,
+    MetaIndicador, MovimentacaoCaixa, UtilizacaoFrota,
+)
+from src.modules.financeiro.gestao_financeira.gestao_financeira_schema import (
+    AbastecimentoFrotaCreate, AbastecimentoFrotaUpdate,
+    AlocacaoFuncionarioObraCreate, AlocacaoFuncionarioObraUpdate,
+    ApropriacaoCustoCreate, ApropriacaoCustoUpdate,
+    CategoriaFinanceiraCreate, CategoriaFinanceiraUpdate,
+    CentroCustoCreate, CentroCustoUpdate,
+    ContaBancariaCreate, ContaBancariaUpdate,
+    FaturaCreate, FaturaUpdate,
+    ItemOrcamentoCreate, ItemOrcamentoUpdate,
+    ManutencaoFrotaCreate, ManutencaoFrotaUpdate,
+    MetaIndicadorCreate, MetaIndicadorUpdate,
+    MovimentacaoCaixaCreate, MovimentacaoCaixaUpdate,
+    UtilizacaoFrotaCreate, UtilizacaoFrotaUpdate,
+)
+from src.modules.financeiro.gestao_financeira.gestao_financeira_service import GestaoFinanceiraService
 
 
 st.set_page_config(page_title="UrbanPrime ERP", page_icon="🏗️", layout="wide", initial_sidebar_state="expanded")
@@ -130,6 +150,9 @@ STATUSES = [
     "em_elaboracao",
     "aberta",
     "planejado",
+    "emitida",
+    "conciliada",
+    "em_manutencao",
 ]
 
 FIELD_LABELS = {
@@ -169,6 +192,26 @@ FIELD_LABELS = {
     "data_admissao": "Data de admissão", "data_demissao": "Data de demissão",
     "data_nascimento": "Data de nascimento", "email_corporativo": "E-mail corporativo",
     "observacoes": "Observações", "observacao": "Observação", "ocorrencias": "Ocorrências",
+    "categoria_financeira_id": "Categoria financeira", "categoria_pai_id": "Categoria superior",
+    "centro_custo_id": "Centro de custo", "conta_bancaria_id": "Conta bancária",
+    "conta_pagar_id": "Conta a pagar", "conta_receber_id": "Conta a receber",
+    "fatura_id": "Fatura", "orcamento_base_id": "Orçamento-base", "frota_id": "Veículo ou equipamento",
+    "cotacao_id": "Cotação de origem", "numero_documento": "Número do documento",
+    "data_competencia": "Data de competência", "competencia": "Competência",
+    "valor_bruto": "Valor bruto", "valor_liquido": "Valor líquido", "impostos": "Impostos",
+    "retencoes": "Retenções", "saldo_inicial": "Saldo inicial", "data_saldo_inicial": "Data do saldo inicial",
+    "numero_conta": "Número da conta", "tipo_conta": "Tipo de conta", "forma_pagamento": "Forma de pagamento",
+    "conciliado": "Conciliado", "data_conciliacao": "Data da conciliação",
+    "codigo_indicador": "Código do indicador", "valor_meta": "Valor da meta",
+    "percentual_fisico": "Avanço físico", "peso_percentual": "Peso da atividade",
+    "data_apropriacao": "Data da apropriação", "tipo_custo": "Tipo de custo", "origem": "Origem",
+    "data_entrada": "Data de entrada", "data_saida": "Data de saída", "custo": "Custo",
+    "data_abastecimento": "Data do abastecimento", "litros": "Litros",
+    "quilometragem_horimetro": "Quilometragem ou horímetro", "data_utilizacao": "Data da utilização",
+    "horas_utilizadas": "Horas utilizadas", "custo_hora": "Custo por hora",
+    "horimetro_inicial": "Horímetro inicial", "horimetro_final": "Horímetro final",
+    "ano_fabricacao": "Ano de fabricação", "data_aquisicao": "Data de aquisição",
+    "valor_aquisicao": "Valor de aquisição", "horimetro_atual": "Horímetro atual",
 }
 
 HIDDEN_LIST_FIELDS = {
@@ -187,6 +230,7 @@ STATUS_LABELS = {
     "realizada": "Realizada", "em_elaboracao": "Em elaboração", "em_revisao": "Em revisão",
     "planejado": "Planejado", "faturada": "Faturada", "recebida": "Recebida",
     "resolvido": "Resolvido", "em_atendimento": "Em atendimento", "recusada": "Recusada",
+    "emitida": "Emitida", "conciliada": "Conciliada", "em_manutencao": "Em manutenção",
 }
 
 FK_CONFIG = {
@@ -203,6 +247,16 @@ FK_CONFIG = {
     "insumo_id": (Insumo, "nome"),
     "medicao_id": (Medicao, "competencia"),
     "usuario_id": (Usuario, "username"),
+    "categoria_financeira_id": (CategoriaFinanceira, "nome"),
+    "categoria_pai_id": (CategoriaFinanceira, "nome"),
+    "centro_custo_id": (CentroCusto, "nome"),
+    "conta_bancaria_id": (ContaBancaria, "numero_conta"),
+    "fatura_id": (Fatura, "numero_documento"),
+    "orcamento_base_id": (OrcamentoBase, "descricao"),
+    "conta_pagar_id": (ContaPagar, "descricao"),
+    "conta_receber_id": (ContaReceber, "descricao"),
+    "frota_id": (Frota, "identificacao"),
+    "cotacao_id": (Cotacao, "descricao"),
 }
 
 
@@ -222,6 +276,14 @@ PAGES: dict[str, dict[str, Any]] = {
     "Medicoes": {"model": Medicao, "service": MedicaoService(), "create": MedicaoCreate, "update": MedicaoUpdate, "description": "Medicoes por obra e competencia."},
     "Chamados Tecnicos": {"model": ChamadoTecnico, "service": ChamadoTecnicoService(), "create": ChamadoTecnicoCreate, "update": ChamadoTecnicoUpdate, "description": "Chamados tecnicos relacionados as obras."},
     "Orcamentos Base": {"model": OrcamentoBase, "service": OrcamentoBaseService(), "create": OrcamentoBaseCreate, "update": OrcamentoBaseUpdate, "description": "Fonte oficial do orcamento aprovado da obra."},
+    "Itens Orcamento": {"model": ItemOrcamento, "service": GestaoFinanceiraService(ItemOrcamento), "create": ItemOrcamentoCreate, "update": ItemOrcamentoUpdate, "description": "Detalhamento do orçamento previsto por etapa, categoria e item."},
+    "Categorias Financeiras": {"model": CategoriaFinanceira, "service": GestaoFinanceiraService(CategoriaFinanceira), "create": CategoriaFinanceiraCreate, "update": CategoriaFinanceiraUpdate, "description": "Plano gerencial de receitas e despesas utilizado nas análises financeiras."},
+    "Centros Custo": {"model": CentroCusto, "service": GestaoFinanceiraService(CentroCusto), "create": CentroCustoCreate, "update": CentroCustoUpdate, "description": "Centros de responsabilidade para separar custos de obras, frota e administração."},
+    "Contas Bancarias": {"model": ContaBancaria, "service": GestaoFinanceiraService(ContaBancaria), "create": ContaBancariaCreate, "update": ContaBancariaUpdate, "description": "Contas utilizadas no controle de caixa e conciliação."},
+    "Faturas": {"model": Fatura, "service": GestaoFinanceiraService(Fatura), "create": FaturaCreate, "update": FaturaUpdate, "description": "Documentos de faturamento vinculados a clientes, contratos, obras e medições."},
+    "Movimentacoes Caixa": {"model": MovimentacaoCaixa, "service": GestaoFinanceiraService(MovimentacaoCaixa), "create": MovimentacaoCaixaCreate, "update": MovimentacaoCaixaUpdate, "description": "Entradas e saídas efetivamente realizadas nas contas bancárias."},
+    "Apropriacoes Custo": {"model": ApropriacaoCusto, "service": GestaoFinanceiraService(ApropriacaoCusto), "create": ApropriacaoCustoCreate, "update": ApropriacaoCustoUpdate, "description": "Custos realizados atribuídos a obras e centros de custo."},
+    "Metas Indicadores": {"model": MetaIndicador, "service": GestaoFinanceiraService(MetaIndicador), "create": MetaIndicadorCreate, "update": MetaIndicadorUpdate, "description": "Metas mensais utilizadas para comparar planejado e realizado."},
     "Contas Pagar": {"model": ContaPagar, "service": ContaPagarService(), "create": ContaPagarCreate, "update": ContaPagarUpdate, "description": "Contas a pagar, incluindo vinculo com ordem de compra."},
     "Contas Receber": {"model": ContaReceber, "service": ContaReceberService(), "create": ContaReceberCreate, "update": ContaReceberUpdate, "description": "Contas a receber vinculadas a clientes, contratos ou medicoes."},
     "Insumos": {"model": Insumo, "service": InsumoService(), "create": InsumoCreate, "update": InsumoUpdate, "description": "Cadastro de insumos e controle de estoque minimo."},
@@ -231,9 +293,13 @@ PAGES: dict[str, dict[str, Any]] = {
     "Ordens Compra": {"model": OrdemCompra, "service": OrdemCompraService(), "create": OrdemCompraCreate, "update": OrdemCompraUpdate, "description": "Ordens de compra que podem alimentar contas a pagar."},
     "Itens Ordem Compra": {"model": ItemOrdemCompra, "service": ItemOrdemCompraService(), "create": ItemOrdemCompraCreate, "update": ItemOrdemCompraUpdate, "description": "Itens detalhados das ordens de compra."},
     "Frotas": {"model": Frota, "service": FrotaService(), "create": FrotaCreate, "update": FrotaUpdate, "description": "Controle de frota e alocacao em obras."},
+    "Manutencoes Frota": {"model": ManutencaoFrota, "service": GestaoFinanceiraService(ManutencaoFrota), "create": ManutencaoFrotaCreate, "update": ManutencaoFrotaUpdate, "description": "Custos, prazos e ocorrências de manutenção da frota."},
+    "Abastecimentos Frota": {"model": AbastecimentoFrota, "service": GestaoFinanceiraService(AbastecimentoFrota), "create": AbastecimentoFrotaCreate, "update": AbastecimentoFrotaUpdate, "description": "Consumo e custo de combustível por equipamento e obra."},
+    "Utilizacoes Frota": {"model": UtilizacaoFrota, "service": GestaoFinanceiraService(UtilizacaoFrota), "create": UtilizacaoFrotaCreate, "update": UtilizacaoFrotaUpdate, "description": "Horas utilizadas e custo operacional da frota."},
     "Cronogramas": {"model": Cronograma, "service": CronogramaService(), "create": CronogramaCreate, "update": CronogramaUpdate, "description": "Planejamento de atividades por obra."},
     "Registro Ponto": {"model": RegistroPonto, "service": RegistroPontoService(), "create": RegistroPontoCreate, "update": RegistroPontoUpdate, "description": "Registro de jornada dos funcionarios."},
     "Folha Pagamento": {"model": FolhaPagamento, "service": FolhaPagamentoService(), "create": FolhaPagamentoCreate, "update": FolhaPagamentoUpdate, "description": "Folha de pagamento por competencia."},
+    "Alocacoes Equipe": {"model": AlocacaoFuncionarioObra, "service": GestaoFinanceiraService(AlocacaoFuncionarioObra), "create": AlocacaoFuncionarioObraCreate, "update": AlocacaoFuncionarioObraUpdate, "description": "Alocação de funcionários, funções e custos de mão de obra por obra."},
 }
 
 PAGE_TITLES = {
@@ -246,6 +312,11 @@ PAGE_TITLES = {
     "Cotacoes": "Cotações", "Ordens Compra": "Ordens de compra",
     "Itens Ordem Compra": "Itens das ordens de compra", "Registro Ponto": "Registro de ponto",
     "Folha Pagamento": "Folha de pagamento",
+    "Itens Orcamento": "Itens do orçamento", "Centros Custo": "Centros de custo",
+    "Contas Bancarias": "Contas bancárias", "Movimentacoes Caixa": "Movimentações de caixa",
+    "Apropriacoes Custo": "Custos por obra", "Metas Indicadores": "Metas e indicadores",
+    "Manutencoes Frota": "Manutenções da frota", "Abastecimentos Frota": "Abastecimentos da frota",
+    "Utilizacoes Frota": "Utilização da frota", "Alocacoes Equipe": "Alocação das equipes",
 }
 
 

@@ -24,6 +24,7 @@ from src.modules.planejamento.frota.frota_controller import router as frota_rout
 from src.modules.planejamento.cronograma.cronograma_controller import router as cronograma_router
 from src.modules.rh.folha_pagamento.folha_pagamento_controller import router as folha_pagamento_router
 from src.modules.rh.registro_ponto.registro_ponto_controller import router as registro_ponto_router
+from src.modules.financeiro.gestao_financeira.gestao_financeira_controller import router as gestao_financeira_router
 
 app = FastAPI(title="UrbanPrime ERP", version="0.1.0")
 
@@ -57,3 +58,4 @@ app.include_router(frota_router)
 app.include_router(cronograma_router)
 app.include_router(folha_pagamento_router)
 app.include_router(registro_ponto_router)
+app.include_router(gestao_financeira_router)
