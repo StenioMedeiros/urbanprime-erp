@@ -10,7 +10,10 @@ class CRUDRepository(Generic[ModelT]):
         self.model = model
 
     def list(self, db: Session, skip: int = 0, limit: int = 100) -> list[ModelT]:
-        return db.query(self.model).offset(skip).limit(limit).all()
+        query = db.query(self.model)
+        if hasattr(self.model, "id"):
+            query = query.order_by(self.model.id.desc())
+        return query.offset(skip).limit(limit).all()
 
     def get(self, db: Session, item_id: int) -> ModelT | None:
         return db.get(self.model, item_id)

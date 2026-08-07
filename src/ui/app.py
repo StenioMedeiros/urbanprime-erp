@@ -304,6 +304,83 @@ PAGES: dict[str, dict[str, Any]] = {
     "Alocacoes Equipe": {"model": AlocacaoFuncionarioObra, "service": GestaoFinanceiraService(AlocacaoFuncionarioObra), "create": AlocacaoFuncionarioObraCreate, "update": AlocacaoFuncionarioObraUpdate, "description": "Alocação de funcionários, funções e custos de mão de obra por obra."},
 }
 
+NAVIGATION_MODULES: dict[str, tuple[str, ...]] = {
+    "Dashboard": ("Dashboard",),
+    "Administrativo e Seguranca": (
+        "Gestao Usuarios",
+        "Gestao Perfis",
+        "Auditoria",
+    ),
+    "Comercial": (
+        "Clientes",
+        "Contratos",
+        "Agenda Visitas",
+    ),
+    "Engenharia e Projetos": (
+        "Projetos",
+        "Revisoes Projeto",
+    ),
+    "Gestao de Obras": (
+        "Obras",
+        "Cronogramas",
+        "Diarios Obra",
+        "Medicoes",
+        "Chamados Tecnicos",
+        "Orcamentos Base",
+        "Itens Orcamento",
+    ),
+    "Financeiro": (
+        "Area Financeira",
+        "Categorias Financeiras",
+        "Centros Custo",
+        "Contas Bancarias",
+        "Faturas",
+        "Movimentacoes Caixa",
+        "Apropriacoes Custo",
+        "Metas Indicadores",
+        "Contas Pagar",
+        "Contas Receber",
+    ),
+    "Compras e Estoque": (
+        "Fornecedores",
+        "Cotacoes",
+        "Ordens Compra",
+        "Itens Ordem Compra",
+        "Insumos",
+        "Movimentacoes Estoque",
+    ),
+    "Frota e Equipamentos": (
+        "Frotas",
+        "Manutencoes Frota",
+        "Abastecimentos Frota",
+        "Utilizacoes Frota",
+    ),
+    "Recursos Humanos": (
+        "Funcionarios",
+        "Registro Ponto",
+        "Folha Pagamento",
+        "Alocacoes Equipe",
+    ),
+}
+
+MODULE_ICONS = {
+    "Dashboard": "📊",
+    "Administrativo e Seguranca": "🔐",
+    "Comercial": "🤝",
+    "Engenharia e Projetos": "📐",
+    "Gestao de Obras": "🏗️",
+    "Financeiro": "💰",
+    "Compras e Estoque": "📦",
+    "Frota e Equipamentos": "🚜",
+    "Recursos Humanos": "👥",
+}
+
+MODULE_TITLES = {
+    "Administrativo e Seguranca": "Administrativo e Segurança",
+    "Gestao de Obras": "Gestão de Obras",
+}
+
+
 PAGE_TITLES = {
     "Area Financeira": "Área financeira",
     "Gestao Usuarios": "Gestão de usuários", "Gestao Perfis": "Gestão de perfis",
@@ -353,6 +430,33 @@ def rows_as_dicts(rows: list[Any]) -> list[dict[str, Any]]:
 
 def page_title(page_name: str) -> str:
     return PAGE_TITLES.get(page_name, page_name)
+
+
+def module_title(module_name: str) -> str:
+    return MODULE_TITLES.get(module_name, module_name)
+
+
+def validate_navigation_structure() -> None:
+    grouped_pages = [
+        page_name
+        for module_pages in NAVIGATION_MODULES.values()
+        for page_name in module_pages
+    ]
+    duplicated_pages = {
+        page_name for page_name in grouped_pages if grouped_pages.count(page_name) > 1
+    }
+    missing_pages = set(PAGES) - set(grouped_pages)
+    unknown_pages = set(grouped_pages) - set(PAGES)
+    if duplicated_pages or missing_pages or unknown_pages:
+        raise RuntimeError(
+            "Navegação inconsistente. "
+            f"Duplicadas: {sorted(duplicated_pages)}; "
+            f"ausentes: {sorted(missing_pages)}; "
+            f"desconhecidas: {sorted(unknown_pages)}"
+        )
+
+
+validate_navigation_structure()
 
 
 def human_value(field: str, value: Any) -> Any:
@@ -506,14 +610,30 @@ def sidebar_menu() -> str:
     st.sidebar.title("🏗️ UrbanPrime ERP")
     st.sidebar.caption(f"Acesso como **{st.session_state.get('username', '')}**")
     st.sidebar.markdown("---")
-    selected = st.sidebar.selectbox(
-        "Acessar área",
-        list(PAGES.keys()),
-        format_func=page_title,
-        help="Escolha o módulo que deseja consultar ou atualizar.",
-        key="main_page",
+    selected_module = st.sidebar.radio(
+        "Módulos principais",
+        list(NAVIGATION_MODULES),
+        format_func=lambda module_name: (
+            f"{MODULE_ICONS[module_name]} {module_title(module_name)}"
+        ),
+        help="Escolha a área responsável pela operação.",
+        key="main_module",
     )
-    st.sidebar.caption("Use a busca dentro de cada módulo para localizar registros por nome ou descrição.")
+    module_pages = NAVIGATION_MODULES[selected_module]
+    if selected_module == "Dashboard":
+        selected = "Dashboard"
+    else:
+        selected = st.sidebar.selectbox(
+            "Funcionalidade",
+            module_pages,
+            format_func=page_title,
+            help="Escolha o recurso que deseja consultar ou atualizar.",
+            key=f"module_page_{selected_module}",
+        )
+        st.sidebar.caption(PAGES[selected]["description"])
+    st.sidebar.caption(
+        "Use a pesquisa da funcionalidade para localizar registros por nome ou descrição."
+    )
     st.sidebar.markdown("---")
     if st.sidebar.button("Sair do sistema", use_container_width=True):
         st.session_state.clear()
@@ -734,7 +854,7 @@ def render_profiles() -> None:
     try:
         if st.button("Atualizar / Recarregar", key="reload_profiles"):
             st.rerun()
-        profiles = db.query(Perfil).order_by(Perfil.id).all()
+        profiles = db.query(Perfil).order_by(Perfil.id.desc()).all()
         if profiles:
             st.dataframe(friendly_rows(db, profiles), width="stretch", hide_index=True)
         else:
@@ -752,7 +872,7 @@ def render_profiles() -> None:
             st.success("Perfil criado com sucesso.")
             st.rerun()
         st.subheader("Permissoes")
-        permissions = db.query(Permissao).order_by(Permissao.modulo, Permissao.acao).all()
+        permissions = db.query(Permissao).order_by(Permissao.id.desc()).all()
         if permissions:
             st.dataframe(rows_as_dicts(permissions), width="stretch", hide_index=True)
         else:
