@@ -11,8 +11,15 @@ class CRUDRepository(Generic[ModelT]):
 
     def list(self, db: Session, skip: int = 0, limit: int = 100) -> list[ModelT]:
         query = db.query(self.model)
+        order_columns = []
+        if hasattr(self.model, "updated_at"):
+            order_columns.append(self.model.updated_at.desc())
+        if hasattr(self.model, "created_at"):
+            order_columns.append(self.model.created_at.desc())
         if hasattr(self.model, "id"):
-            query = query.order_by(self.model.id.desc())
+            order_columns.append(self.model.id.desc())
+        if order_columns:
+            query = query.order_by(*order_columns)
         return query.offset(skip).limit(limit).all()
 
     def get(self, db: Session, item_id: int) -> ModelT | None:

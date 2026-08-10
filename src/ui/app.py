@@ -671,7 +671,12 @@ def render_dashboard() -> None:
         flow_second[1].metric("Orçamentos-base", safe_count(db, "SELECT COUNT(*) FROM orcamentos_base"))
         render_dashboard_trends(db)
         st.subheader("Atividades recentes")
-        logs = db.query(LogAuditoria).order_by(LogAuditoria.created_at.desc()).limit(20).all()
+        logs = (
+            db.query(LogAuditoria)
+            .order_by(LogAuditoria.created_at.desc(), LogAuditoria.id.desc())
+            .limit(20)
+            .all()
+        )
         if logs:
             st.dataframe(friendly_rows(db, logs), width="stretch", hide_index=True)
         else:
@@ -794,7 +799,17 @@ def render_users() -> None:
     try:
         if st.button("Atualizar / Recarregar", key="reload_users"):
             st.rerun()
-        rows = db.query(Usuario).order_by(Usuario.id.desc()).limit(500).all()
+        rows = (
+            db.query(Usuario)
+            .order_by(
+                Usuario.updated_at.desc(),
+                Usuario.ultimo_login.desc().nullslast(),
+                Usuario.created_at.desc(),
+                Usuario.id.desc(),
+            )
+            .limit(500)
+            .all()
+        )
         if rows:
             search = st.text_input("Pesquisar usuário", placeholder="Digite o nome de usuário ou e-mail")
             display = friendly_rows(db, rows)
@@ -854,7 +869,11 @@ def render_profiles() -> None:
     try:
         if st.button("Atualizar / Recarregar", key="reload_profiles"):
             st.rerun()
-        profiles = db.query(Perfil).order_by(Perfil.id.desc()).all()
+        profiles = (
+            db.query(Perfil)
+            .order_by(Perfil.updated_at.desc(), Perfil.created_at.desc(), Perfil.id.desc())
+            .all()
+        )
         if profiles:
             st.dataframe(friendly_rows(db, profiles), width="stretch", hide_index=True)
         else:
@@ -872,7 +891,15 @@ def render_profiles() -> None:
             st.success("Perfil criado com sucesso.")
             st.rerun()
         st.subheader("Permissoes")
-        permissions = db.query(Permissao).order_by(Permissao.id.desc()).all()
+        permissions = (
+            db.query(Permissao)
+            .order_by(
+                Permissao.updated_at.desc(),
+                Permissao.created_at.desc(),
+                Permissao.id.desc(),
+            )
+            .all()
+        )
         if permissions:
             st.dataframe(rows_as_dicts(permissions), width="stretch", hide_index=True)
         else:
@@ -906,7 +933,12 @@ def render_audit() -> None:
             st.rerun()
         total = db.query(func.count(LogAuditoria.id)).scalar() or 0
         st.metric("Total de logs", total)
-        logs = db.query(LogAuditoria).order_by(LogAuditoria.created_at.desc()).limit(500).all()
+        logs = (
+            db.query(LogAuditoria)
+            .order_by(LogAuditoria.created_at.desc(), LogAuditoria.id.desc())
+            .limit(500)
+            .all()
+        )
         if logs:
             search = st.text_input("Pesquisar atividade", placeholder="Digite usuário, módulo, ação ou descrição")
             display = friendly_rows(db, logs)
