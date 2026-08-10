@@ -8,6 +8,7 @@ from src.core.auth.usuario_model import Usuario
 from src.core.database.base import Base
 from src.core.security.password_manager import hash_password
 from src.modules.rh.funcionario.funcionario_model import Funcionario
+from src.shared.utils.brazil_localization import now_local_naive
 
 
 def test_login_funcionario():
@@ -20,9 +21,10 @@ def test_login_funcionario():
     db.refresh(funcionario)
     db.add(Usuario(funcionario_id=funcionario.id, username="admin", email="admin@urbanprime.com", senha_hash=hash_password("Admin@123")))
     db.commit()
-    _user, access, refresh = AuthService().authenticate(db, "admin", "Admin@123")
+    user, access, refresh = AuthService().authenticate(db, "admin", "Admin@123")
     assert access
     assert refresh
+    assert abs((now_local_naive() - user.ultimo_login).total_seconds()) < 2
 
 
 def test_bloqueio_por_tentativas_invalidas():

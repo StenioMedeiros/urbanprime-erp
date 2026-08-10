@@ -22,6 +22,7 @@ from src.core.auth.permissao_model import Permissao
 from src.core.auth.usuario_model import Usuario
 from src.core.auth.usuario_perfil_model import UsuarioPerfil
 from src.core.audit.log_auditoria_model import LogAuditoria
+from src.core.config.settings import get_settings
 from src.core.database.connection import SessionLocal
 from src.core.security.password_manager import hash_password
 from src.modules.comercial.agenda_visita.agenda_visita_model import AgendaVisita
@@ -93,6 +94,23 @@ from src.modules.rh.funcionario.funcionario_service import FuncionarioService
 from src.modules.rh.registro_ponto.registro_ponto_model import RegistroPonto
 from src.modules.rh.registro_ponto.registro_ponto_schema import RegistroPontoCreate, RegistroPontoUpdate
 from src.modules.rh.registro_ponto.registro_ponto_service import RegistroPontoService
+from src.shared.utils.brazil_localization import (
+    BRAZIL_STATES,
+    format_cep,
+    format_cnpj,
+    format_competence_br,
+    format_cpf,
+    format_cpf_cnpj,
+    format_currency_br,
+    format_date_br,
+    format_datetime_br,
+    format_number_br,
+    format_phone_br,
+    normalize_brazilian_field,
+    now_in_timezone,
+    now_local_naive,
+    today_in_timezone,
+)
 from src.modules.financeiro.gestao_financeira.gestao_financeira_model import (
     AbastecimentoFrota, AlocacaoFuncionarioObra, ApropriacaoCusto, CategoriaFinanceira,
     CentroCusto, ContaBancaria, Fatura, ItemOrcamento, ManutencaoFrota,
@@ -156,6 +174,8 @@ STATUSES = [
     "em_manutencao",
 ]
 
+APP_SETTINGS = get_settings()
+
 FIELD_LABELS = {
     "id": "ID",
     "cliente_id": "Cliente",
@@ -213,6 +233,25 @@ FIELD_LABELS = {
     "horimetro_inicial": "Horímetro inicial", "horimetro_final": "Horímetro final",
     "ano_fabricacao": "Ano de fabricação", "data_aquisicao": "Data de aquisição",
     "valor_aquisicao": "Valor de aquisição", "horimetro_atual": "Horímetro atual",
+    "agencia": "Agência", "aprovado": "Aprovado", "arquivo_contrato": "Arquivo do contrato",
+    "arquivo_projeto": "Arquivo do projeto", "arquivo_revisao": "Arquivo da revisão",
+    "atividade": "Atividade", "atividades": "Atividades", "ativo": "Ativo",
+    "banco": "Banco", "cargo": "Cargo", "cep": "CEP", "cidade": "Cidade",
+    "clima": "Clima", "cnpj": "CNPJ", "codigo": "Código", "contabilizavel": "Contabilizável",
+    "cpf": "CPF", "data": "Data", "data_entrega": "Data de entrega",
+    "data_pagamento": "Data do pagamento", "data_recebimento": "Data do recebimento",
+    "data_revisao": "Data da revisão", "descontos": "Descontos", "email": "E-mail",
+    "endereco": "Endereço", "entrada": "Entrada", "estado": "UF", "etapa": "Etapa",
+    "funcao": "Função", "horario": "Horário", "horimetro": "Horímetro",
+    "identificacao": "Identificação", "local_visita": "Local da visita", "marca": "Marca",
+    "modelo": "Modelo", "motivo": "Motivo", "numero": "Número",
+    "numero_revisao": "Número da revisão", "placa": "Placa", "prioridade": "Prioridade",
+    "quantidade": "Quantidade", "retorno_intervalo": "Retorno do intervalo", "rg": "RG",
+    "saida": "Saída", "saida_intervalo": "Saída para intervalo", "setor": "Setor",
+    "telefone": "Telefone", "tipo": "Tipo", "titulo": "Título", "unidade": "Unidade",
+    "versao": "Versão", "modulo": "Módulo", "acao": "Ação", "nivel": "Nível",
+    "entidade": "Entidade", "entidade_id": "Registro relacionado",
+    "data_criacao": "Data de criação", "ultimo_login": "Último acesso",
 }
 
 HIDDEN_LIST_FIELDS = {
@@ -264,20 +303,20 @@ FK_CONFIG = {
 PAGES: dict[str, dict[str, Any]] = {
     "Dashboard": {"description": "Indicadores operacionais e financeiros em tempo real."},
     "Area Financeira": {"description": "Faturamento, custos, rentabilidade, caixa e projeções em uma única área."},
-    "Gestao Usuarios": {"description": "Crie usuarios internos vinculados a funcionarios e perfis."},
-    "Gestao Perfis": {"description": "Administre perfis e permissoes de acesso."},
-    "Auditoria": {"description": "Consulte os ultimos eventos criticos registrados no sistema."},
+    "Gestao Usuarios": {"description": "Crie usuários internos vinculados a funcionários e perfis."},
+    "Gestao Perfis": {"description": "Administre perfis e permissões de acesso."},
+    "Auditoria": {"description": "Consulte os últimos eventos críticos registrados no sistema."},
     "Funcionarios": {"model": Funcionario, "service": FuncionarioService(), "create": FuncionarioCreate, "update": FuncionarioUpdate, "description": "Cadastro interno de colaboradores da UrbanPrime."},
-    "Clientes": {"model": Cliente, "service": ClienteService(), "create": ClienteCreate, "update": ClienteUpdate, "description": "Cadastro comercial de clientes. Clientes nao fazem login."},
-    "Contratos": {"model": Contrato, "service": ContratoService(), "create": ContratoCreate, "update": ContratoUpdate, "description": "Contratos vinculados a clientes, sem vinculo direto com obra."},
-    "Agenda Visitas": {"model": AgendaVisita, "service": AgendaVisitaService(), "create": AgendaVisitaCreate, "update": AgendaVisitaUpdate, "description": "Agenda comercial e tecnica relacionada a clientes."},
+    "Clientes": {"model": Cliente, "service": ClienteService(), "create": ClienteCreate, "update": ClienteUpdate, "description": "Cadastro comercial de clientes. Clientes não acessam o sistema."},
+    "Contratos": {"model": Contrato, "service": ContratoService(), "create": ContratoCreate, "update": ContratoUpdate, "description": "Contratos vinculados a clientes, sem vínculo direto com a obra."},
+    "Agenda Visitas": {"model": AgendaVisita, "service": AgendaVisitaService(), "create": AgendaVisitaCreate, "update": AgendaVisitaUpdate, "description": "Agenda comercial e técnica relacionada a clientes."},
     "Projetos": {"model": Projeto, "service": ProjetoService(), "create": ProjetoCreate, "update": ProjetoUpdate, "description": "Projetos nascidos a partir de contratos."},
-    "Revisoes Projeto": {"model": RevisaoProjeto, "service": RevisaoProjetoService(), "create": RevisaoProjetoCreate, "update": RevisaoProjetoUpdate, "description": "Controle de revisoes tecnicas dos projetos."},
-    "Obras": {"model": Obra, "service": ObraService(), "create": ObraCreate, "update": ObraUpdate, "description": "Obras vinculadas a contrato e projeto. O orcamento oficial fica em Orcamentos Base."},
-    "Diarios Obra": {"model": DiarioObra, "service": DiarioObraService(), "create": DiarioObraCreate, "update": DiarioObraUpdate, "description": "Registros diarios de atividades, clima e ocorrencias da obra."},
-    "Medicoes": {"model": Medicao, "service": MedicaoService(), "create": MedicaoCreate, "update": MedicaoUpdate, "description": "Medicoes por obra e competencia."},
-    "Chamados Tecnicos": {"model": ChamadoTecnico, "service": ChamadoTecnicoService(), "create": ChamadoTecnicoCreate, "update": ChamadoTecnicoUpdate, "description": "Chamados tecnicos relacionados as obras."},
-    "Orcamentos Base": {"model": OrcamentoBase, "service": OrcamentoBaseService(), "create": OrcamentoBaseCreate, "update": OrcamentoBaseUpdate, "description": "Fonte oficial do orcamento aprovado da obra."},
+    "Revisoes Projeto": {"model": RevisaoProjeto, "service": RevisaoProjetoService(), "create": RevisaoProjetoCreate, "update": RevisaoProjetoUpdate, "description": "Controle de revisões técnicas dos projetos."},
+    "Obras": {"model": Obra, "service": ObraService(), "create": ObraCreate, "update": ObraUpdate, "description": "Obras vinculadas a contrato e projeto. O orçamento oficial fica em Orçamentos-base."},
+    "Diarios Obra": {"model": DiarioObra, "service": DiarioObraService(), "create": DiarioObraCreate, "update": DiarioObraUpdate, "description": "Registros diários de atividades, clima e ocorrências da obra."},
+    "Medicoes": {"model": Medicao, "service": MedicaoService(), "create": MedicaoCreate, "update": MedicaoUpdate, "description": "Medições por obra e competência."},
+    "Chamados Tecnicos": {"model": ChamadoTecnico, "service": ChamadoTecnicoService(), "create": ChamadoTecnicoCreate, "update": ChamadoTecnicoUpdate, "description": "Chamados técnicos relacionados às obras."},
+    "Orcamentos Base": {"model": OrcamentoBase, "service": OrcamentoBaseService(), "create": OrcamentoBaseCreate, "update": OrcamentoBaseUpdate, "description": "Fonte oficial do orçamento aprovado da obra."},
     "Itens Orcamento": {"model": ItemOrcamento, "service": GestaoFinanceiraService(ItemOrcamento), "create": ItemOrcamentoCreate, "update": ItemOrcamentoUpdate, "description": "Detalhamento do orçamento previsto por etapa, categoria e item."},
     "Categorias Financeiras": {"model": CategoriaFinanceira, "service": GestaoFinanceiraService(CategoriaFinanceira), "create": CategoriaFinanceiraCreate, "update": CategoriaFinanceiraUpdate, "description": "Plano gerencial de receitas e despesas utilizado nas análises financeiras."},
     "Centros Custo": {"model": CentroCusto, "service": GestaoFinanceiraService(CentroCusto), "create": CentroCustoCreate, "update": CentroCustoUpdate, "description": "Centros de responsabilidade para separar custos de obras, frota e administração."},
@@ -286,21 +325,21 @@ PAGES: dict[str, dict[str, Any]] = {
     "Movimentacoes Caixa": {"model": MovimentacaoCaixa, "service": GestaoFinanceiraService(MovimentacaoCaixa), "create": MovimentacaoCaixaCreate, "update": MovimentacaoCaixaUpdate, "description": "Entradas e saídas efetivamente realizadas nas contas bancárias."},
     "Apropriacoes Custo": {"model": ApropriacaoCusto, "service": GestaoFinanceiraService(ApropriacaoCusto), "create": ApropriacaoCustoCreate, "update": ApropriacaoCustoUpdate, "description": "Custos realizados atribuídos a obras e centros de custo."},
     "Metas Indicadores": {"model": MetaIndicador, "service": GestaoFinanceiraService(MetaIndicador), "create": MetaIndicadorCreate, "update": MetaIndicadorUpdate, "description": "Metas mensais utilizadas para comparar planejado e realizado."},
-    "Contas Pagar": {"model": ContaPagar, "service": ContaPagarService(), "create": ContaPagarCreate, "update": ContaPagarUpdate, "description": "Contas a pagar, incluindo vinculo com ordem de compra."},
-    "Contas Receber": {"model": ContaReceber, "service": ContaReceberService(), "create": ContaReceberCreate, "update": ContaReceberUpdate, "description": "Contas a receber vinculadas a clientes, contratos ou medicoes."},
-    "Insumos": {"model": Insumo, "service": InsumoService(), "create": InsumoCreate, "update": InsumoUpdate, "description": "Cadastro de insumos e controle de estoque minimo."},
-    "Movimentacoes Estoque": {"model": MovimentacaoEstoque, "service": MovimentacaoEstoqueService(), "create": MovimentacaoEstoqueCreate, "update": MovimentacaoEstoqueUpdate, "description": "Entradas e saidas de insumos por obra."},
-    "Fornecedores": {"model": Fornecedor, "service": FornecedorService(), "create": FornecedorCreate, "update": FornecedorUpdate, "description": "Cadastro de fornecedores. Fornecedores nao fazem login."},
-    "Cotacoes": {"model": Cotacao, "service": CotacaoService(), "create": CotacaoCreate, "update": CotacaoUpdate, "description": "Cotacoes de compras por fornecedor e obra."},
+    "Contas Pagar": {"model": ContaPagar, "service": ContaPagarService(), "create": ContaPagarCreate, "update": ContaPagarUpdate, "description": "Contas a pagar, incluindo vínculo com ordem de compra."},
+    "Contas Receber": {"model": ContaReceber, "service": ContaReceberService(), "create": ContaReceberCreate, "update": ContaReceberUpdate, "description": "Contas a receber vinculadas a clientes, contratos ou medições."},
+    "Insumos": {"model": Insumo, "service": InsumoService(), "create": InsumoCreate, "update": InsumoUpdate, "description": "Cadastro de insumos e controle de estoque mínimo."},
+    "Movimentacoes Estoque": {"model": MovimentacaoEstoque, "service": MovimentacaoEstoqueService(), "create": MovimentacaoEstoqueCreate, "update": MovimentacaoEstoqueUpdate, "description": "Entradas e saídas de insumos por obra."},
+    "Fornecedores": {"model": Fornecedor, "service": FornecedorService(), "create": FornecedorCreate, "update": FornecedorUpdate, "description": "Cadastro de fornecedores. Fornecedores não acessam o sistema."},
+    "Cotacoes": {"model": Cotacao, "service": CotacaoService(), "create": CotacaoCreate, "update": CotacaoUpdate, "description": "Cotações de compras por fornecedor e obra."},
     "Ordens Compra": {"model": OrdemCompra, "service": OrdemCompraService(), "create": OrdemCompraCreate, "update": OrdemCompraUpdate, "description": "Ordens de compra que podem alimentar contas a pagar."},
     "Itens Ordem Compra": {"model": ItemOrdemCompra, "service": ItemOrdemCompraService(), "create": ItemOrdemCompraCreate, "update": ItemOrdemCompraUpdate, "description": "Itens detalhados das ordens de compra."},
-    "Frotas": {"model": Frota, "service": FrotaService(), "create": FrotaCreate, "update": FrotaUpdate, "description": "Controle de frota e alocacao em obras."},
+    "Frotas": {"model": Frota, "service": FrotaService(), "create": FrotaCreate, "update": FrotaUpdate, "description": "Controle de frota e alocação em obras."},
     "Manutencoes Frota": {"model": ManutencaoFrota, "service": GestaoFinanceiraService(ManutencaoFrota), "create": ManutencaoFrotaCreate, "update": ManutencaoFrotaUpdate, "description": "Custos, prazos e ocorrências de manutenção da frota."},
     "Abastecimentos Frota": {"model": AbastecimentoFrota, "service": GestaoFinanceiraService(AbastecimentoFrota), "create": AbastecimentoFrotaCreate, "update": AbastecimentoFrotaUpdate, "description": "Consumo e custo de combustível por equipamento e obra."},
     "Utilizacoes Frota": {"model": UtilizacaoFrota, "service": GestaoFinanceiraService(UtilizacaoFrota), "create": UtilizacaoFrotaCreate, "update": UtilizacaoFrotaUpdate, "description": "Horas utilizadas e custo operacional da frota."},
     "Cronogramas": {"model": Cronograma, "service": CronogramaService(), "create": CronogramaCreate, "update": CronogramaUpdate, "description": "Planejamento de atividades por obra."},
-    "Registro Ponto": {"model": RegistroPonto, "service": RegistroPontoService(), "create": RegistroPontoCreate, "update": RegistroPontoUpdate, "description": "Registro de jornada dos funcionarios."},
-    "Folha Pagamento": {"model": FolhaPagamento, "service": FolhaPagamentoService(), "create": FolhaPagamentoCreate, "update": FolhaPagamentoUpdate, "description": "Folha de pagamento por competencia."},
+    "Registro Ponto": {"model": RegistroPonto, "service": RegistroPontoService(), "create": RegistroPontoCreate, "update": RegistroPontoUpdate, "description": "Registro da jornada dos funcionários."},
+    "Folha Pagamento": {"model": FolhaPagamento, "service": FolhaPagamentoService(), "create": FolhaPagamentoCreate, "update": FolhaPagamentoUpdate, "description": "Folha de pagamento por competência."},
     "Alocacoes Equipe": {"model": AlocacaoFuncionarioObra, "service": GestaoFinanceiraService(AlocacaoFuncionarioObra), "create": AlocacaoFuncionarioObraCreate, "update": AlocacaoFuncionarioObraUpdate, "description": "Alocação de funcionários, funções e custos de mão de obra por obra."},
 }
 
@@ -361,6 +400,55 @@ NAVIGATION_MODULES: dict[str, tuple[str, ...]] = {
         "Folha Pagamento",
         "Alocacoes Equipe",
     ),
+}
+
+VALUE_LABELS = {
+    "juridica": "Pessoa jurídica", "fisica": "Pessoa física",
+    "entrada": "Entrada", "saida": "Saída", "receita": "Receita", "despesa": "Despesa",
+    "direto": "Direto", "indireto": "Indireto", "conta_pagar": "Conta a pagar",
+    "manual": "Lançamento manual", "folha": "Folha de pagamento", "frota": "Frota",
+    "obra": "Obra", "estoque": "Estoque", "administrativo": "Administrativo",
+    "corrente": "Conta corrente", "poupanca": "Poupança", "caixa": "Caixa",
+    "investimento": "Investimento", "transferencia": "Transferência", "pix": "PIX",
+    "boleto": "Boleto bancário", "dinheiro": "Dinheiro", "cartao": "Cartão",
+    "numero": "Número", "percentual": "Percentual", "reais": "Reais (R$)",
+    "ensolarado": "Ensolarado", "nublado": "Nublado", "chuvoso": "Chuvoso",
+    "residencial": "Residencial", "comercial": "Comercial", "industrial": "Industrial",
+    "hospitalar": "Hospitalar", "hoteleiro": "Hoteleiro", "educacional": "Educacional",
+    "preventiva": "Preventiva", "corretiva": "Corretiva", "preditiva": "Preditiva",
+    "auth": "Autenticação", "usuarios": "Usuários", "perfis": "Perfis e permissões",
+    "engenharia": "Engenharia", "financeiro": "Financeiro", "compras": "Compras",
+    "obras": "Obras", "planejamento": "Planejamento", "rh": "Recursos Humanos",
+    "auditoria": "Auditoria", "visualizar": "Visualizar", "criar": "Criar",
+    "editar": "Editar", "excluir": "Excluir", "aprovar": "Aprovar", "cancelar": "Cancelar",
+    "login": "Acesso ao sistema", "info": "Informação", "cadastro": "Cadastro",
+}
+
+TRANSLATED_VALUE_FIELDS = {
+    "tipo", "tipo_pessoa", "tipo_projeto", "tipo_conta", "tipo_custo", "origem",
+    "forma_pagamento", "unidade", "clima", "modulo", "acao", "nivel", "entidade",
+}
+
+MONEY_FIELDS = {
+    "valor", "valor_total", "valor_unitario", "valor_medido", "valor_bruto",
+    "valor_liquido", "valor_aquisicao", "saldo_inicial", "salario_base", "salario_bruto",
+    "salario_liquido", "impostos", "retencoes", "descontos", "custo", "custo_hora",
+}
+
+MODEL_FIELD_CHOICES = {
+    ("clientes", "tipo_pessoa"): ("juridica", "fisica"),
+    ("projetos", "tipo_projeto"): ("residencial", "comercial", "industrial", "hospitalar", "hoteleiro", "educacional"),
+    ("diarios_obra", "clima"): ("ensolarado", "nublado", "chuvoso"),
+    ("movimentacoes_estoque", "tipo"): ("entrada", "saida"),
+    ("categorias_financeiras", "tipo"): ("receita", "despesa"),
+    ("centros_custo", "tipo"): ("obra", "frota", "estoque", "administrativo"),
+    ("contas_bancarias", "tipo_conta"): ("corrente", "poupanca", "caixa", "investimento"),
+    ("movimentacoes_caixa", "tipo"): ("entrada", "saida"),
+    ("movimentacoes_caixa", "forma_pagamento"): ("pix", "transferencia", "boleto", "dinheiro", "cartao"),
+    ("apropriacoes_custo", "tipo_custo"): ("direto", "indireto"),
+    ("apropriacoes_custo", "origem"): ("manual", "conta_pagar", "folha", "frota", "estoque"),
+    ("metas_indicadores", "unidade"): ("numero", "percentual", "reais"),
+    ("manutencoes_frota", "tipo"): ("preventiva", "corretiva", "preditiva"),
 }
 
 MODULE_ICONS = {
@@ -464,16 +552,34 @@ def human_value(field: str, value: Any) -> Any:
         return "—"
     if field == "status":
         return STATUS_LABELS.get(str(value), str(value).replace("_", " ").title())
+    if isinstance(value, str):
+        if field == "competencia":
+            return format_competence_br(value)
+        if field == "cpf":
+            return format_cpf(value)
+        if field == "cnpj":
+            return format_cnpj(value)
+        if field == "cpf_cnpj":
+            return format_cpf_cnpj(value)
+        if field == "cep":
+            return format_cep(value)
+        if field == "telefone":
+            return format_phone_br(value)
+        if field in TRANSLATED_VALUE_FIELDS:
+            return VALUE_LABELS.get(value, value.replace("_", " ").capitalize())
     if isinstance(value, datetime):
-        return value.strftime("%d/%m/%Y %H:%M")
+        return format_datetime_br(value, APP_SETTINGS.app_timezone)
     if isinstance(value, date):
-        return value.strftime("%d/%m/%Y")
+        return format_date_br(value)
     if isinstance(value, time):
         return value.strftime("%H:%M")
     if isinstance(value, Decimal):
-        if any(token in field for token in ("valor", "salario")):
-            return f"R$ {value:,.2f}".replace(",", "X").replace(".", ",").replace("X", ".")
-        return f"{value:,.2f}".replace(",", "X").replace(".", ",").replace("X", ".")
+        if field in MONEY_FIELDS:
+            return format_currency_br(value)
+        if "percentual" in field:
+            return f"{format_number_br(value, 2)}%"
+        decimal_places = 3 if field in {"quantidade", "litros", "horas_utilizadas"} else 2
+        return format_number_br(value, decimal_places)
     if isinstance(value, bool):
         return "Sim" if value else "Não"
     return value
@@ -547,7 +653,33 @@ def value_input(db: Session, model: Any, field: str, default: Any = None, key: s
     if field == "status":
         options = STATUSES
         current = default if default in options else (column.default.arg if column.default is not None and isinstance(column.default.arg, str) else options[0])
-        return st.selectbox(label, options, index=options.index(current), key=key)
+        return st.selectbox(
+            label,
+            options,
+            index=options.index(current),
+            format_func=lambda value: STATUS_LABELS.get(value, value.replace("_", " ").title()),
+            key=key,
+        )
+    choice_values = MODEL_FIELD_CHOICES.get((model.__tablename__, field))
+    if field == "estado":
+        choice_values = BRAZIL_STATES
+        default = default or APP_SETTINGS.default_state
+    if choice_values:
+        options = list(choice_values)
+        configured_default = column.default.arg if column.default is not None and isinstance(column.default.arg, str) else None
+        current = default or configured_default
+        if current and current not in options:
+            options.insert(0, current)
+        if not required and current is None:
+            options.insert(0, None)
+        index = options.index(current) if current in options else 0
+        return st.selectbox(
+            label,
+            options,
+            index=index,
+            format_func=lambda value: "Não informado" if value is None else VALUE_LABELS.get(value, value),
+            key=key,
+        )
     python_type = getattr(column.type, "python_type", str)
     if python_type is bool:
         return st.checkbox(label, value=bool(default), key=key)
@@ -556,8 +688,14 @@ def value_input(db: Session, model: Any, field: str, default: Any = None, key: s
     if python_type is Decimal:
         value = float(default or 0)
         return Decimal(str(st.number_input(label, min_value=0.0, step=0.01, value=value, key=key)))
+    if python_type is datetime:
+        current = default if isinstance(default, datetime) else now_local_naive(APP_SETTINGS.app_timezone)
+        date_column, time_column = st.columns(2)
+        selected_date = date_column.date_input(f"{label} — data", value=current.date(), key=f"{key}_date")
+        selected_time = time_column.time_input(f"{label} — hora", value=current.time().replace(microsecond=0), key=f"{key}_time")
+        return datetime.combine(selected_date, selected_time)
     if python_type is date:
-        value = default if isinstance(default, date) else date.today()
+        value = default if isinstance(default, date) else today_in_timezone(APP_SETTINGS.app_timezone)
         return st.date_input(label, value=value, key=key)
     if python_type is time:
         value = default if isinstance(default, time) else time(8, 0)
@@ -566,11 +704,13 @@ def value_input(db: Session, model: Any, field: str, default: Any = None, key: s
         value = "" if default is None else str(default)
         text_value = st.text_area(label, value=value, key=key)
     else:
+        if field == "cidade" and default is None:
+            default = APP_SETTINGS.default_city
         value = "" if default is None else str(default)
         text_value = st.text_input(label, value=value, key=key)
     if not text_value and not required:
         return None
-    return text_value
+    return normalize_brazilian_field(field, text_value)
 
 
 def safe_count(db: Session, sql: str) -> int:
@@ -609,6 +749,8 @@ def login_screen() -> None:
 def sidebar_menu() -> str:
     st.sidebar.title("🏗️ UrbanPrime ERP")
     st.sidebar.caption(f"Acesso como **{st.session_state.get('username', '')}**")
+    local_now = now_in_timezone(APP_SETTINGS.app_timezone)
+    st.sidebar.caption(f"Horário de Brasília: {format_datetime_br(local_now, APP_SETTINGS.app_timezone)}")
     st.sidebar.markdown("---")
     selected_module = st.sidebar.radio(
         "Módulos principais",
@@ -759,7 +901,7 @@ def render_edit_form(db: Session, cfg: dict[str, Any], page_name: str, rows: lis
         payload: dict[str, Any] = {}
         for field in editable_columns(model):
             payload[field] = value_input(db, model, field, getattr(item, field), key=f"edit_{page_name}_{item.id}_{field}")
-        submitted = st.form_submit_button("Salvar alteracoes")
+        submitted = st.form_submit_button("Salvar alterações")
     if submitted:
         try:
             cleaned = {key: value for key, value in payload.items() if value is not None}
@@ -787,7 +929,7 @@ def render_crud_page(page_name: str, cfg: dict[str, Any]) -> None:
         with edit_tab:
             render_edit_form(db, cfg, page_name, rows)
     except Exception as exc:
-        st.error(f"Erro ao carregar pagina: {exc}")
+        st.error(f"Erro ao carregar página: {exc}")
     finally:
         db.close()
 
@@ -819,10 +961,10 @@ def render_users() -> None:
         else:
             st.info("Nenhum registro encontrado.")
         with st.form("create_user"):
-            st.subheader("Cadastrar usuario interno")
+            st.subheader("Cadastrar usuário interno")
             funcionario_id = fk_input(db, "funcionario_id", True, key="user_funcionario")
-            username = st.text_input("Usuario")
-            email = st.text_input("Email")
+            username = st.text_input("Usuário")
+            email = st.text_input("E-mail")
             password = st.text_input("Senha inicial", type="password")
             perfil_options = db.query(Perfil).filter(Perfil.ativo.is_(True)).order_by(Perfil.nome).all()
             perfil_id = st.selectbox("Perfil", [p.id for p in perfil_options], format_func=lambda pid: next((p.nome for p in perfil_options if p.id == pid), str(pid))) if perfil_options else None
@@ -830,7 +972,7 @@ def render_users() -> None:
             submitted = st.form_submit_button("Salvar")
         if submitted:
             if not funcionario_id or not username or not email or not password:
-                st.error("Preencha funcionario, usuario, email e senha.")
+                st.error("Preencha funcionário, usuário, e-mail e senha.")
             else:
                 user = Usuario(funcionario_id=funcionario_id, username=username, email=email, senha_hash=hash_password(password), ativo=ativo, bloqueado=False)
                 db.add(user)
@@ -839,25 +981,25 @@ def render_users() -> None:
                 if perfil_id:
                     db.add(UsuarioPerfil(usuario_id=user.id, perfil_id=perfil_id))
                     db.commit()
-                st.success(f"Usuario criado com ID {user.id}.")
+                st.success(f"Usuário criado com ID {user.id}.")
                 st.rerun()
-        st.subheader("Editar status do usuario")
-        edit_id = st.number_input("ID do usuario", min_value=1, step=1, key="user_edit_id")
+        st.subheader("Editar situação do usuário")
+        edit_id = st.number_input("ID do usuário", min_value=1, step=1, key="user_edit_id")
         user = db.get(Usuario, int(edit_id))
         if user:
             ativo = st.checkbox("Ativo", value=user.ativo, key="user_edit_ativo")
             bloqueado = st.checkbox("Bloqueado", value=user.bloqueado, key="user_edit_bloqueado")
-            if st.button("Salvar status do usuario"):
+            if st.button("Salvar situação do usuário"):
                 user.ativo = ativo
                 user.bloqueado = bloqueado
                 db.commit()
-                st.success("Usuario atualizado.")
+                st.success("Usuário atualizado.")
                 st.rerun()
         else:
             st.warning("Informe um ID existente para editar.")
     except Exception as exc:
         db.rollback()
-        st.error(f"Erro em usuarios: {exc}")
+        st.error(f"Erro em usuários: {exc}")
     finally:
         db.close()
 
@@ -881,8 +1023,8 @@ def render_profiles() -> None:
         with st.form("create_profile"):
             st.subheader("Cadastrar perfil")
             nome = st.text_input("Nome")
-            descricao = st.text_area("Descricao")
-            nivel = st.number_input("Nivel de acesso", min_value=1, max_value=100, value=10, step=1)
+            descricao = st.text_area("Descrição")
+            nivel = st.number_input("Nível de acesso", min_value=1, max_value=100, value=10, step=1)
             ativo = st.checkbox("Ativo", value=True)
             submitted = st.form_submit_button("Salvar")
         if submitted:
@@ -890,7 +1032,7 @@ def render_profiles() -> None:
             db.commit()
             st.success("Perfil criado com sucesso.")
             st.rerun()
-        st.subheader("Permissoes")
+        st.subheader("Permissões")
         permissions = (
             db.query(Permissao)
             .order_by(
@@ -901,21 +1043,29 @@ def render_profiles() -> None:
             .all()
         )
         if permissions:
-            st.dataframe(rows_as_dicts(permissions), width="stretch", hide_index=True)
+            st.dataframe(friendly_rows(db, permissions), width="stretch", hide_index=True)
         else:
             st.info("Nenhum registro encontrado.")
-        st.subheader("Vincular permissao a perfil")
+        st.subheader("Vincular permissão a perfil")
         if profiles and permissions:
             perfil_id = st.selectbox("Perfil", [p.id for p in profiles], format_func=lambda pid: next((p.nome for p in profiles if p.id == pid), str(pid)), key="pp_perfil")
-            permissao_id = st.selectbox("Permissao", [p.id for p in permissions], format_func=lambda pid: next((f"{p.modulo}:{p.acao}" for p in permissions if p.id == pid), str(pid)), key="pp_perm")
-            if st.button("Salvar permissao no perfil"):
+            permissao_id = st.selectbox(
+                "Permissão",
+                [p.id for p in permissions],
+                format_func=lambda pid: next(
+                    (f"{human_value('modulo', p.modulo)}: {human_value('acao', p.acao)}" for p in permissions if p.id == pid),
+                    str(pid),
+                ),
+                key="pp_perm",
+            )
+            if st.button("Salvar permissão no perfil"):
                 exists = db.query(PerfilPermissao).filter_by(perfil_id=perfil_id, permissao_id=permissao_id).first()
                 if exists:
-                    st.warning("Permissao ja vinculada.")
+                    st.warning("Permissão já vinculada.")
                 else:
                     db.add(PerfilPermissao(perfil_id=perfil_id, permissao_id=permissao_id))
                     db.commit()
-                    st.success("Permissao vinculada.")
+                    st.success("Permissão vinculada.")
                     st.rerun()
     except Exception as exc:
         db.rollback()

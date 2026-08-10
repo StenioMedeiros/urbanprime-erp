@@ -11,6 +11,11 @@ class Settings(BaseSettings):
     access_token_expire_minutes: int = 30
     refresh_token_expire_days: int = 7
     fernet_key: str
+    app_timezone: str = "America/Recife"
+    app_locale: str = "pt_BR"
+    app_currency: str = "BRL"
+    default_city: str = "Garanhuns"
+    default_state: str = "PE"
 
 
 @lru_cache

@@ -8,6 +8,16 @@ import streamlit as st
 from sqlalchemy import text
 from sqlalchemy.orm import Session
 
+from src.core.config.settings import get_settings
+from src.shared.utils.brazil_localization import (
+    format_currency_br,
+    format_number_br,
+    today_in_timezone,
+)
+
+
+APP_SETTINGS = get_settings()
+
 
 EXPENSES_SQL = """
 SELECT
@@ -268,8 +278,7 @@ def load_financial_data(db: Session) -> tuple[pd.DataFrame, pd.DataFrame, pd.Dat
 
 
 def _money(value: float) -> str:
-    formatted = f"{float(value):,.2f}".replace(",", "X").replace(".", ",").replace("X", ".")
-    return f"R$ {formatted}"
+    return format_currency_br(value)
 
 
 def _monthly(frame: pd.DataFrame, value_column: str, output_name: str) -> pd.DataFrame:
@@ -376,7 +385,7 @@ def _period_bounds(
     period: str,
     frames: list[pd.DataFrame],
 ) -> tuple[date, date]:
-    today = date.today()
+    today = today_in_timezone(APP_SETTINGS.app_timezone)
     if period == "Ano atual":
         return date(today.year, 1, 1), date(today.year, 12, 31)
     if period == "Últimos 12 meses":
@@ -424,7 +433,7 @@ def _render_overview(expenses: pd.DataFrame, revenue: pd.DataFrame, cash: pd.Dat
     first_row[1].metric("Faturamento líquido", _money(net), help="Valor faturado depois de impostos e retenções.")
     first_row[2].metric("Custos operacionais", _money(costs), help="Custos de obras, pessoal, manutenção, combustível e contas a pagar ainda não apropriadas.")
     second_row = st.columns(3)
-    second_row[0].metric("Resultado", _money(result), delta=f"Margem {margin:.1f}%", help="Faturamento líquido menos custos operacionais.")
+    second_row[0].metric("Resultado", _money(result), delta=f"Margem {format_number_br(margin, 1)}%", help="Faturamento líquido menos custos operacionais.")
     second_row[1].metric("Investimentos", _money(investment_total), help="Compra de máquinas e veículos. É apresentada separadamente para não distorcer o lucro operacional.")
     second_row[2].metric("Saldo de caixa", _money(cash_balance), help="Entradas recebidas menos saídas pagas. Não é o mesmo que lucro.")
 
@@ -485,18 +494,11 @@ def _render_profitability(expenses: pd.DataFrame, revenue: pd.DataFrame) -> None
         return
     chart = table.set_index(grouping or "Obra")[["Faturamento líquido", "Custos operacionais", "Resultado"]]
     st.bar_chart(chart, height=420)
-    st.dataframe(
-        table,
-        width="stretch",
-        hide_index=True,
-        column_config={
-            "Faturamento líquido": st.column_config.NumberColumn(format="R$ %.2f"),
-            "Custos operacionais": st.column_config.NumberColumn(format="R$ %.2f"),
-            "Investimentos": st.column_config.NumberColumn(format="R$ %.2f"),
-            "Resultado": st.column_config.NumberColumn(format="R$ %.2f"),
-            "Margem (%)": st.column_config.NumberColumn(format="%.1f%%"),
-        },
-    )
+    display = table.copy()
+    for column in ("Faturamento líquido", "Custos operacionais", "Investimentos", "Resultado"):
+        display[column] = display[column].map(format_currency_br)
+    display["Margem (%)"] = display["Margem (%)"].map(lambda value: f"{format_number_br(value, 1)}%")
+    st.dataframe(display, width="stretch", hide_index=True)
 
 
 def _render_expenses(expenses: pd.DataFrame) -> None:
@@ -516,11 +518,12 @@ def _render_expenses(expenses: pd.DataFrame) -> None:
     display = display.rename(
         columns={"data": "Data", "natureza": "Natureza", "origem": "Origem", "categoria": "Categoria", "descricao": "Descrição", "valor": "Valor", "obra": "Obra", "projeto": "Projeto", "cliente": "Cliente"}
     )
+    display["Valor"] = display["Valor"].map(format_currency_br)
     st.dataframe(
         display,
         width="stretch",
         hide_index=True,
-        column_config={"Data": st.column_config.DateColumn(format="DD/MM/YYYY"), "Valor": st.column_config.NumberColumn(format="R$ %.2f")},
+        column_config={"Data": st.column_config.DateColumn(format="DD/MM/YYYY")},
     )
     st.download_button(
         "Baixar despesas filtradas",
@@ -546,11 +549,14 @@ def _render_cash(cash: pd.DataFrame) -> None:
     st.line_chart(series.set_index("data")[["Entradas", "Saídas", "Saldo do mês"]], height=360)
     display = cash[["data", "tipo", "descricao", "categoria", "valor", "banco", "obra", "cliente", "conciliado"]].sort_values("data", ascending=False)
     display = display.rename(columns={"data": "Data", "tipo": "Tipo", "descricao": "Descrição", "categoria": "Categoria", "valor": "Valor", "banco": "Banco", "obra": "Obra", "cliente": "Cliente", "conciliado": "Conciliado"})
+    display["Tipo"] = display["Tipo"].map({"entrada": "Entrada", "saida": "Saída"}).fillna(display["Tipo"])
+    display["Conciliado"] = display["Conciliado"].map({True: "Sim", False: "Não"})
+    display["Valor"] = display["Valor"].map(format_currency_br)
     st.dataframe(
         display,
         width="stretch",
         hide_index=True,
-        column_config={"Data": st.column_config.DateColumn(format="DD/MM/YYYY"), "Valor": st.column_config.NumberColumn(format="R$ %.2f")},
+        column_config={"Data": st.column_config.DateColumn(format="DD/MM/YYYY")},
     )
 
 

@@ -27,6 +27,6 @@ def require_permission(modulo: str, acao: str) -> Callable:
     def checker(user: Usuario = Depends(get_current_user), db: Session = Depends(get_db)) -> Usuario:
         if user_has_permission(db, user.id, modulo, acao):
             return user
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Permissao insuficiente")
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Permissão insuficiente")
 
     return checker
