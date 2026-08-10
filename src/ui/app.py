@@ -21,6 +21,12 @@ from src.core.auth.perfil_permissao_model import PerfilPermissao
 from src.core.auth.permissao_model import Permissao
 from src.core.auth.usuario_model import Usuario
 from src.core.auth.usuario_perfil_model import UsuarioPerfil
+from src.core.audit.audit_logger import (
+    add_audit_log,
+    log_action,
+    model_snapshot,
+    set_audit_context,
+)
 from src.core.audit.log_auditoria_model import LogAuditoria
 from src.core.config.settings import get_settings
 from src.core.database.connection import SessionLocal
@@ -421,7 +427,10 @@ VALUE_LABELS = {
     "obras": "Obras", "planejamento": "Planejamento", "rh": "Recursos Humanos",
     "auditoria": "Auditoria", "visualizar": "Visualizar", "criar": "Criar",
     "editar": "Editar", "excluir": "Excluir", "aprovar": "Aprovar", "cancelar": "Cancelar",
-    "login": "Acesso ao sistema", "info": "Informação", "cadastro": "Cadastro",
+    "login": "Acesso ao sistema", "logout": "Saída do sistema",
+    "login_falhou": "Tentativa de acesso sem sucesso",
+    "vincular_permissao": "Vincular permissão", "info": "Informação",
+    "warning": "Atenção", "cadastro": "Cadastro",
 }
 
 TRANSLATED_VALUE_FIELDS = {
@@ -732,7 +741,12 @@ def login_screen() -> None:
     if submitted:
         db = get_db()
         try:
-            user, access_token, refresh_token = AuthService().authenticate(db, username, password)
+            user, access_token, refresh_token = AuthService().authenticate(
+                db,
+                username,
+                password,
+                origem="streamlit",
+            )
             st.session_state["authenticated"] = True
             st.session_state["user_id"] = user.id
             st.session_state["username"] = user.username
@@ -778,6 +792,22 @@ def sidebar_menu() -> str:
     )
     st.sidebar.markdown("---")
     if st.sidebar.button("Sair do sistema", use_container_width=True):
+        db = get_db()
+        try:
+            log_action(
+                db,
+                usuario_id=st.session_state.get("user_id"),
+                modulo="auth",
+                acao="logout",
+                entidade="usuarios",
+                entidade_id=st.session_state.get("user_id"),
+                descricao="Saída do sistema pelo Streamlit",
+                dados_novos={"origem": "streamlit"},
+            )
+        except Exception:
+            db.rollback()
+        finally:
+            db.close()
         st.session_state.clear()
         st.rerun()
     return selected
@@ -874,6 +904,12 @@ def render_create_form(db: Session, cfg: dict[str, Any], page_name: str) -> None
     if submitted:
         try:
             cleaned = {key: value for key, value in payload.items() if value is not None}
+            set_audit_context(
+                db,
+                usuario_id=st.session_state.get("user_id"),
+                modulo=page_title(page_name),
+                origem="streamlit",
+            )
             item = cfg["service"].create(db, create_schema(**cleaned))
             st.success(f"Registro salvo com ID {item.id}.")
             st.rerun()
@@ -905,6 +941,12 @@ def render_edit_form(db: Session, cfg: dict[str, Any], page_name: str, rows: lis
     if submitted:
         try:
             cleaned = {key: value for key, value in payload.items() if value is not None}
+            set_audit_context(
+                db,
+                usuario_id=st.session_state.get("user_id"),
+                modulo=page_title(page_name),
+                origem="streamlit",
+            )
             cfg["service"].update(db, item.id, update_schema(**cleaned))
             st.success("Registro atualizado com sucesso.")
             st.rerun()
@@ -976,11 +1018,23 @@ def render_users() -> None:
             else:
                 user = Usuario(funcionario_id=funcionario_id, username=username, email=email, senha_hash=hash_password(password), ativo=ativo, bloqueado=False)
                 db.add(user)
-                db.commit()
-                db.refresh(user)
+                db.flush()
                 if perfil_id:
                     db.add(UsuarioPerfil(usuario_id=user.id, perfil_id=perfil_id))
-                    db.commit()
+                new_data = model_snapshot(user)
+                new_data["perfil_id"] = perfil_id
+                add_audit_log(
+                    db,
+                    usuario_id=st.session_state.get("user_id"),
+                    modulo="Gestão de usuários",
+                    acao="criar",
+                    entidade="usuarios",
+                    entidade_id=user.id,
+                    descricao=f"Usuário {username} criado",
+                    dados_novos=new_data,
+                )
+                db.commit()
+                db.refresh(user)
                 st.success(f"Usuário criado com ID {user.id}.")
                 st.rerun()
         st.subheader("Editar situação do usuário")
@@ -990,8 +1044,21 @@ def render_users() -> None:
             ativo = st.checkbox("Ativo", value=user.ativo, key="user_edit_ativo")
             bloqueado = st.checkbox("Bloqueado", value=user.bloqueado, key="user_edit_bloqueado")
             if st.button("Salvar situação do usuário"):
+                before = model_snapshot(user)
                 user.ativo = ativo
                 user.bloqueado = bloqueado
+                db.flush()
+                add_audit_log(
+                    db,
+                    usuario_id=st.session_state.get("user_id"),
+                    modulo="Gestão de usuários",
+                    acao="editar",
+                    entidade="usuarios",
+                    entidade_id=user.id,
+                    descricao=f"Situação do usuário {user.username} alterada",
+                    dados_anteriores=before,
+                    dados_novos=model_snapshot(user),
+                )
                 db.commit()
                 st.success("Usuário atualizado.")
                 st.rerun()
@@ -1028,7 +1095,19 @@ def render_profiles() -> None:
             ativo = st.checkbox("Ativo", value=True)
             submitted = st.form_submit_button("Salvar")
         if submitted:
-            db.add(Perfil(nome=nome, descricao=descricao, nivel_acesso=nivel, ativo=ativo))
+            profile = Perfil(nome=nome, descricao=descricao, nivel_acesso=nivel, ativo=ativo)
+            db.add(profile)
+            db.flush()
+            add_audit_log(
+                db,
+                usuario_id=st.session_state.get("user_id"),
+                modulo="Gestão de perfis",
+                acao="criar",
+                entidade="perfis",
+                entidade_id=profile.id,
+                descricao=f"Perfil {nome} criado",
+                dados_novos=model_snapshot(profile),
+            )
             db.commit()
             st.success("Perfil criado com sucesso.")
             st.rerun()
@@ -1064,6 +1143,16 @@ def render_profiles() -> None:
                     st.warning("Permissão já vinculada.")
                 else:
                     db.add(PerfilPermissao(perfil_id=perfil_id, permissao_id=permissao_id))
+                    add_audit_log(
+                        db,
+                        usuario_id=st.session_state.get("user_id"),
+                        modulo="Gestão de perfis",
+                        acao="vincular_permissao",
+                        entidade="perfil_permissao",
+                        entidade_id=perfil_id,
+                        descricao="Permissão vinculada ao perfil",
+                        dados_novos={"perfil_id": perfil_id, "permissao_id": permissao_id},
+                    )
                     db.commit()
                     st.success("Permissão vinculada.")
                     st.rerun()
@@ -1095,17 +1184,51 @@ def render_audit() -> None:
             if search:
                 display = [item for item in display if search.casefold() in " ".join(map(str, item.values())).casefold()]
             st.dataframe(display, width="stretch", hide_index=True)
+
+            access_logs = [log for log in logs if log.acao in {"login", "login_falhou", "logout"}]
+            st.subheader("Histórico de acessos")
+            if access_logs:
+                st.caption("Cada entrada, tentativa sem sucesso e saída permanece registrada em uma linha própria.")
+                st.dataframe(friendly_rows(db, access_logs), width="stretch", hide_index=True)
+            else:
+                st.info("Ainda não há acessos reais registrados.")
+
+            st.subheader("Detalhes da atividade")
+            selected_log_id = st.selectbox(
+                "Atividade",
+                [log.id for log in logs],
+                format_func=lambda log_id: next(
+                    (
+                        f"{format_datetime_br(log.created_at, APP_SETTINGS.app_timezone)} · "
+                        f"{human_value('acao', log.acao)} · {log.descricao or log.entidade or 'Atividade'}"
+                        for log in logs
+                        if log.id == log_id
+                    ),
+                    str(log_id),
+                ),
+                key="audit_detail_id",
+            )
+            selected_log = next(log for log in logs if log.id == selected_log_id)
+            selected_user = db.get(Usuario, selected_log.usuario_id) if selected_log.usuario_id else None
+            detail_columns = st.columns(3)
+            detail_columns[0].metric("Usuário", selected_user.username if selected_user else "Não identificado")
+            detail_columns[1].metric("Módulo", human_value("modulo", selected_log.modulo))
+            detail_columns[2].metric("Ação", human_value("acao", selected_log.acao))
+            before_column, after_column = st.columns(2)
+            with before_column:
+                st.caption("Dados anteriores")
+                if selected_log.dados_anteriores:
+                    st.json(selected_log.dados_anteriores)
+                else:
+                    st.write("—")
+            with after_column:
+                st.caption("Dados novos")
+                if selected_log.dados_novos:
+                    st.json(selected_log.dados_novos)
+                else:
+                    st.write("—")
         else:
             st.info("Nenhum registro encontrado.")
-        with st.form("audit_lookup"):
-            log_id = st.number_input("Consultar log por ID", min_value=1, step=1)
-            submitted = st.form_submit_button("Consultar")
-        if submitted:
-            log = db.get(LogAuditoria, int(log_id))
-            if log:
-                st.json(rows_as_dicts([log])[0])
-            else:
-                st.warning("Nenhum registro encontrado.")
     except Exception as exc:
         st.error(f"Erro em auditoria: {exc}")
     finally:
