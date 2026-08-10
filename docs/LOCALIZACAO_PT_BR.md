@@ -7,12 +7,14 @@ O sistema utiliza português do Brasil na interface e o fuso `America/Recife`, c
 - Datas: `DD/MM/AAAA`.
 - Datas com horário: `DD/MM/AAAA HH:MM`.
 - Competências: `MM/AAAA` na apresentação e `AAAA-MM` no banco, preservando a ordenação.
+- Meses em gráficos: nomes e abreviações em português, como `jan/2026`, `fev/2026` e `agosto de 2026`.
 - Moeda: real brasileiro, como `R$ 1.234,56`.
 - Números: ponto para milhar e vírgula para decimais.
 - CPF, CNPJ, CEP e telefone: máscaras brasileiras na entrada e na apresentação.
 - Estados: seleção pelas 27 siglas oficiais das unidades federativas.
 - Novos endereços: Garanhuns/PE como referência inicial, ainda permitindo alteração.
 - Situações e códigos internos: armazenados sem acentos para integração, mas apresentados em português legível.
+- Gráficos: calendário, valores monetários, milhares, casas decimais e mensagens sem dados são configurados explicitamente para português do Brasil, sem depender do idioma do navegador.
 
 ## Horários técnicos
 

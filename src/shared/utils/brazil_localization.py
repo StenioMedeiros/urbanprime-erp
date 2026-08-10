@@ -9,6 +9,23 @@ from zoneinfo import ZoneInfo
 
 DEFAULT_BRAZIL_TIMEZONE = "America/Recife"
 
+MONTH_NAMES_PT_BR = (
+    "janeiro", "fevereiro", "março", "abril", "maio", "junho",
+    "julho", "agosto", "setembro", "outubro", "novembro", "dezembro",
+)
+
+SHORT_MONTH_NAMES_PT_BR = (
+    "jan", "fev", "mar", "abr", "mai", "jun",
+    "jul", "ago", "set", "out", "nov", "dez",
+)
+
+WEEKDAY_NAMES_PT_BR = (
+    "domingo", "segunda-feira", "terça-feira", "quarta-feira",
+    "quinta-feira", "sexta-feira", "sábado",
+)
+
+SHORT_WEEKDAY_NAMES_PT_BR = ("dom", "seg", "ter", "qua", "qui", "sex", "sáb")
+
 BRAZIL_STATES = (
     "AC", "AL", "AP", "AM", "BA", "CE", "DF", "ES", "GO", "MA", "MT", "MS",
     "MG", "PA", "PB", "PR", "PE", "PI", "RJ", "RN", "RS", "RO", "RR", "SC",
@@ -45,6 +62,18 @@ def format_date_br(value: date) -> str:
 
 def format_datetime_br(value: datetime, name: str = DEFAULT_BRAZIL_TIMEZONE) -> str:
     return as_local_datetime(value, name).strftime("%d/%m/%Y %H:%M")
+
+
+def format_month_name_br(month: int, abbreviated: bool = False) -> str:
+    if not 1 <= month <= 12:
+        raise ValueError("O mês deve estar entre 1 e 12.")
+    names = SHORT_MONTH_NAMES_PT_BR if abbreviated else MONTH_NAMES_PT_BR
+    return names[month - 1]
+
+
+def format_month_year_br(value: date | datetime, abbreviated: bool = True) -> str:
+    month_name = format_month_name_br(value.month, abbreviated=abbreviated)
+    return f"{month_name}/{value.year}" if abbreviated else f"{month_name} de {value.year}"
 
 
 def format_number_br(value: Decimal | int | float | str, decimal_places: int = 2) -> str:

@@ -3,6 +3,7 @@ from __future__ import annotations
 from datetime import date
 from typing import Any, Callable
 
+import altair as alt
 import pandas as pd
 import streamlit as st
 from sqlalchemy import text
@@ -10,6 +11,10 @@ from sqlalchemy.orm import Session
 
 from src.core.config.settings import get_settings
 from src.shared.utils.brazil_localization import (
+    MONTH_NAMES_PT_BR,
+    SHORT_MONTH_NAMES_PT_BR,
+    SHORT_WEEKDAY_NAMES_PT_BR,
+    WEEKDAY_NAMES_PT_BR,
     format_currency_br,
     format_number_br,
     today_in_timezone,
@@ -281,6 +286,77 @@ def _money(value: float) -> str:
     return format_currency_br(value)
 
 
+def _chart_locale_pt_br() -> alt.Locale:
+    return alt.Locale(
+        number=alt.NumberLocale(
+            decimal=",",
+            thousands=".",
+            grouping=[3],
+            currency=["R$ ", ""],
+            percent="%",
+            minus="−",
+            nan="Não disponível",
+        ),
+        time=alt.TimeLocale(
+            dateTime="%A, %e de %B de %Y, %X",
+            date="%d/%m/%Y",
+            time="%H:%M:%S",
+            periods=["AM", "PM"],
+            days=list(WEEKDAY_NAMES_PT_BR),
+            shortDays=list(SHORT_WEEKDAY_NAMES_PT_BR),
+            months=list(MONTH_NAMES_PT_BR),
+            shortMonths=list(SHORT_MONTH_NAMES_PT_BR),
+        ),
+    )
+
+
+def _render_monthly_line_chart(
+    frame: pd.DataFrame,
+    *,
+    height: int,
+    monetary: bool = True,
+) -> None:
+    """Renderiza série temporal sem depender do idioma do navegador."""
+    prepared = frame.copy()
+    index_name = prepared.index.name or "data"
+    prepared.index.name = index_name
+    prepared = prepared.reset_index().rename(columns={index_name: "data"})
+    prepared["data"] = pd.to_datetime(prepared["data"], errors="coerce")
+    values = prepared.melt(id_vars="data", var_name="Indicador", value_name="Valor")
+    values = values.dropna(subset=["data", "Valor"])
+    if values.empty:
+        st.info("Ainda não há dados suficientes para montar este gráfico.")
+        return
+
+    value_format = "$,.2f" if monetary else ",.0f"
+    value_title = "Valor (R$)" if monetary else "Quantidade"
+    chart = (
+        alt.Chart(values)
+        .mark_line(point=True)
+        .encode(
+            x=alt.X(
+                "data:T",
+                title="Período",
+                axis=alt.Axis(format="%b/%Y", labelAngle=-35),
+            ),
+            y=alt.Y(
+                "Valor:Q",
+                title=value_title,
+                axis=alt.Axis(format=value_format),
+            ),
+            color=alt.Color("Indicador:N", title="Indicador"),
+            tooltip=[
+                alt.Tooltip("data:T", title="Período", format="%B de %Y"),
+                alt.Tooltip("Indicador:N", title="Indicador"),
+                alt.Tooltip("Valor:Q", title=value_title, format=value_format),
+            ],
+        )
+        .properties(height=height)
+        .configure(locale=_chart_locale_pt_br())
+    )
+    st.altair_chart(chart, width="stretch")
+
+
 def _monthly(frame: pd.DataFrame, value_column: str, output_name: str) -> pd.DataFrame:
     if frame.empty or frame["data"].dropna().empty:
         return pd.DataFrame(columns=["data", output_name])
@@ -442,7 +518,10 @@ def _render_overview(expenses: pd.DataFrame, revenue: pd.DataFrame, cash: pd.Dat
     if series.empty:
         st.info("Ainda não há dados suficientes para montar a evolução mensal.")
     else:
-        st.line_chart(series.set_index("data")[["Faturamento líquido", "Custos", "Resultado"]], height=360)
+        _render_monthly_line_chart(
+            series.set_index("data")[["Faturamento líquido", "Custos", "Resultado"]],
+            height=360,
+        )
 
     left, right = st.columns(2)
     with left:
@@ -546,7 +625,10 @@ def _render_cash(cash: pd.DataFrame) -> None:
     columns[0].metric("Entradas", _money(entries))
     columns[1].metric("Saídas", _money(exits))
     columns[2].metric("Saldo do período", _money(entries - exits))
-    st.line_chart(series.set_index("data")[["Entradas", "Saídas", "Saldo do mês"]], height=360)
+    _render_monthly_line_chart(
+        series.set_index("data")[["Entradas", "Saídas", "Saldo do mês"]],
+        height=360,
+    )
     display = cash[["data", "tipo", "descricao", "categoria", "valor", "banco", "obra", "cliente", "conciliado"]].sort_values("data", ascending=False)
     display = display.rename(columns={"data": "Data", "tipo": "Tipo", "descricao": "Descrição", "categoria": "Categoria", "valor": "Valor", "banco": "Banco", "obra": "Obra", "cliente": "Cliente", "conciliado": "Conciliado"})
     display["Tipo"] = display["Tipo"].map({"entrada": "Entrada", "saida": "Saída"}).fillna(display["Tipo"])
@@ -584,7 +666,7 @@ def _render_projection(expenses: pd.DataFrame, revenue: pd.DataFrame, cash: pd.D
         st.info("Ainda não há histórico suficiente para esta projeção.")
         return
     st.metric("Estimativa para o sexto mês", _money(last_projection), delta="lucro" if column == "Resultado" and last_projection >= 0 else ("perda" if column == "Resultado" else None))
-    st.line_chart(chart, height=420)
+    _render_monthly_line_chart(chart, height=420)
     st.warning("Esta é uma estimativa linear para apoio à análise, não uma garantia. Orçamento, contratos, cronograma, sazonalidade e decisões comerciais devem ser considerados antes de tomar decisões.")
 
 
@@ -694,7 +776,11 @@ def render_dashboard_trends(db: Session) -> None:
             chart = source.set_index("data")[[column]].rename(columns={column: "Realizado"})
         left, right = st.columns([4, 1])
         with left:
-            st.line_chart(chart, height=340)
+            _render_monthly_line_chart(
+                chart,
+                height=340,
+                monetary=indicator != "Quantidade de obras",
+            )
         with right:
             current_value = float(source[column].iloc[-1])
             if indicator == "Quantidade de obras":
