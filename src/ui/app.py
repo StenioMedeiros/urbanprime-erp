@@ -137,7 +137,8 @@ from src.modules.financeiro.gestao_financeira.gestao_financeira_schema import (
     UtilizacaoFrotaCreate, UtilizacaoFrotaUpdate,
 )
 from src.modules.financeiro.gestao_financeira.gestao_financeira_service import GestaoFinanceiraService
-from src.ui.financial_dashboard import render_dashboard_trends, render_financial_area
+from src.ui.dashboard_hub import render_dashboard_hub
+from src.ui.financial_dashboard import render_financial_area
 
 
 st.set_page_config(page_title="UrbanPrime ERP", page_icon="🏗️", layout="wide", initial_sidebar_state="expanded")
@@ -821,38 +822,21 @@ def require_login() -> bool:
 
 
 def render_dashboard() -> None:
-    st.title("Dashboard")
-    st.write(PAGES["Dashboard"]["description"])
     db = get_db()
     try:
-        first_row = st.columns(3)
-        first_row[0].metric("Obras", safe_count(db, "SELECT COUNT(*) FROM obras"))
-        first_row[1].metric("Contratos ativos", safe_count(db, "SELECT COUNT(*) FROM contratos WHERE status = 'ativo'"))
-        first_row[2].metric("Pagar em aberto", safe_count(db, "SELECT COUNT(*) FROM contas_pagar WHERE status = 'em_aberto'"))
-        second_row = st.columns(3)
-        second_row[0].metric("Receber em aberto", safe_count(db, "SELECT COUNT(*) FROM contas_receber WHERE status = 'em_aberto'"))
-        second_row[1].metric("Estoque mínimo", safe_count(db, "SELECT COUNT(*) FROM insumos WHERE quantidade_atual <= estoque_minimo"))
-        second_row[2].metric("Usuários ativos", safe_count(db, "SELECT COUNT(*) FROM usuarios WHERE ativo = true"))
-        st.subheader("Fluxo principal")
-        flow_first = st.columns(3)
-        flow_first[0].metric("Clientes", safe_count(db, "SELECT COUNT(*) FROM clientes"))
-        flow_first[1].metric("Contratos", safe_count(db, "SELECT COUNT(*) FROM contratos"))
-        flow_first[2].metric("Projetos", safe_count(db, "SELECT COUNT(*) FROM projetos"))
-        flow_second = st.columns(2)
-        flow_second[0].metric("Obras", safe_count(db, "SELECT COUNT(*) FROM obras"))
-        flow_second[1].metric("Orçamentos-base", safe_count(db, "SELECT COUNT(*) FROM orcamentos_base"))
-        render_dashboard_trends(db)
-        st.subheader("Atividades recentes")
-        logs = (
-            db.query(LogAuditoria)
-            .order_by(LogAuditoria.created_at.desc(), LogAuditoria.id.desc())
-            .limit(20)
-            .all()
-        )
-        if logs:
-            st.dataframe(friendly_rows(db, logs), width="stretch", hide_index=True)
-        else:
-            st.info("Nenhum registro encontrado.")
+        selected_dashboard = render_dashboard_hub(db)
+        if selected_dashboard == "Executivo":
+            st.subheader("Atividades recentes")
+            logs = (
+                db.query(LogAuditoria)
+                .order_by(LogAuditoria.created_at.desc(), LogAuditoria.id.desc())
+                .limit(20)
+                .all()
+            )
+            if logs:
+                st.dataframe(friendly_rows(db, logs), width="stretch", hide_index=True)
+            else:
+                st.info("Nenhum registro encontrado.")
     except Exception as exc:
         st.error(f"Erro ao carregar dashboard: {exc}")
     finally:

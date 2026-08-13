@@ -31,14 +31,27 @@ Nas telas de cadastro e movimentação, o usuário pode, conforme suas permissõ
 
 ## 3. Dashboard
 
-O Dashboard é a página inicial de acompanhamento do sistema. Ele reúne os principais indicadores da empresa para permitir uma leitura rápida da situação operacional e financeira.
+O Dashboard é a central de acompanhamento gerencial do sistema. No topo da página, o usuário escolhe qual painel deseja consultar sem precisar sair dessa área.
+
+### Painéis da central
+
+- **Executivo — disponível:** consolida faturamento, recebimentos, gastos, caixa, carteira de contratos, obras, quadro de funcionários, estoque, frota, tendências, projeções e pontos de atenção. Os indicadores comparam o período selecionado com o período imediatamente anterior.
+- **Financeiro e Fluxo de Caixa — disponível:** apresenta visão geral financeira, faturamento acumulado, rentabilidade, despesas, entradas e saídas, contas e vencimentos, metas e projeções. Pode ser filtrado por período, obra, cliente e categoria de despesa.
+- **Obras e Engenharia — próxima etapa:** reservado para prazo, avanço físico, medições, orçamento, chamados e revisões.
+- **Compras e Fornecedores — próxima etapa:** reservado para compras, cotações, fornecedores, prazos e economia.
+- **Estoque — próxima etapa:** reservado para valor armazenado, movimentações, consumo, giro e risco de falta.
+- **Frota e Maquinário — próxima etapa:** reservado para disponibilidade, utilização, manutenção, combustível e custos.
+- **Recursos Humanos — próxima etapa:** reservado para quadro de pessoal, folha, jornada, alocações e produtividade.
+
+As projeções e os alertas são análises transversais: aparecem dentro dos painéis Executivo e Financeiro, em vez de formar um painel setorial separado.
 
 ### Funcionalidades
 
-- **Indicadores gerais:** apresenta quantidades de obras, contratos ativos, contas em aberto, estoque mínimo e usuários ativos.
-- **Visão do fluxo principal:** resume a quantidade de clientes, contratos, projetos, obras e orçamentos cadastrados.
-- **Tendências:** permite acompanhar faturamento, lucro ou perda, saldo de caixa e crescimento da quantidade de obras ao longo do tempo.
+- **Indicadores executivos:** apresenta faturamento, recebimentos, gastos, saldo operacional, obras, contratos, funcionários, estoque e frota.
+- **Comparação entre períodos:** mostra crescimento ou queda em relação ao período anterior equivalente.
+- **Tendências:** permite acompanhar faturamento, lucro ou perda, saldo de caixa e crescimento da quantidade de obras ao longo do tempo, sem considerar lançamentos futuros como realizados.
 - **Projeções:** estima os próximos seis meses com base no histórico registrado. A projeção serve como apoio gerencial e não como garantia de resultado.
+- **Pontos de atenção:** destaca obras atrasadas, contas vencidas, materiais críticos e equipamentos em manutenção.
 - **Auditoria recente:** mostra as últimas atividades realizadas no sistema.
 
 ## 4. Administrativo e Segurança

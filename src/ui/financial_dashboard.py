@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from datetime import date
+from datetime import date, timedelta
 from typing import Any, Callable
 
 import altair as alt
@@ -249,6 +249,50 @@ LEFT JOIN clientes cl ON cl.id = COALESCE(f.cliente_id, ct.cliente_id)
 """
 
 
+PAYABLES_SQL = """
+SELECT
+    cp.data_vencimento AS vencimento,
+    cp.data_pagamento AS liquidacao,
+    cp.valor::numeric AS valor,
+    cp.status,
+    cp.descricao,
+    COALESCE(fr.nome_fantasia, fr.razao_social, 'Sem fornecedor definido')::text AS contraparte,
+    o.nome::text AS obra,
+    COALESCE(cf.nome, 'Sem categoria')::text AS categoria
+FROM contas_pagar cp
+LEFT JOIN fornecedores fr ON fr.id = cp.fornecedor_id
+LEFT JOIN obras o ON o.id = cp.obra_id
+LEFT JOIN categorias_financeiras cf ON cf.id = cp.categoria_financeira_id
+"""
+
+
+RECEIVABLES_SQL = """
+SELECT
+    cr.data_vencimento AS vencimento,
+    cr.data_recebimento AS liquidacao,
+    cr.valor::numeric AS valor,
+    cr.status,
+    cr.descricao,
+    COALESCE(cl.nome, 'Sem cliente definido')::text AS contraparte,
+    o.nome::text AS obra,
+    COALESCE(cf.nome, 'Sem categoria')::text AS categoria
+FROM contas_receber cr
+LEFT JOIN clientes cl ON cl.id = cr.cliente_id
+LEFT JOIN faturas ft ON ft.id = cr.fatura_id
+LEFT JOIN centros_custo cc ON cc.id = cr.centro_custo_id
+LEFT JOIN obras o ON o.id = COALESCE(ft.obra_id, cc.obra_id)
+LEFT JOIN categorias_financeiras cf ON cf.id = cr.categoria_financeira_id
+"""
+
+
+GOALS_SQL = """
+SELECT codigo_indicador, nome, competencia, valor_meta::numeric AS valor_meta, unidade
+FROM metas_indicadores
+WHERE ativo = true
+ORDER BY competencia, codigo_indicador
+"""
+
+
 WORKS_SQL = """
 SELECT data_inicio AS data, COUNT(*)::numeric AS quantidade
 FROM obras
@@ -280,6 +324,21 @@ def load_financial_data(db: Session) -> tuple[pd.DataFrame, pd.DataFrame, pd.Dat
     )
     cash = _prepare_frame(_query_frame(db, CASH_SQL), ["valor"])
     return expenses, revenue, cash
+
+
+def load_obligations_data(db: Session) -> tuple[pd.DataFrame, pd.DataFrame]:
+    payables = _prepare_frame(_query_frame(db, PAYABLES_SQL), ["valor"])
+    receivables = _prepare_frame(_query_frame(db, RECEIVABLES_SQL), ["valor"])
+    for frame in (payables, receivables):
+        frame["vencimento"] = pd.to_datetime(frame["vencimento"], errors="coerce")
+        frame["liquidacao"] = pd.to_datetime(frame["liquidacao"], errors="coerce")
+    return payables, receivables
+
+
+def load_goals_data(db: Session) -> pd.DataFrame:
+    goals = _prepare_frame(_query_frame(db, GOALS_SQL), ["valor_meta"])
+    goals["competencia_data"] = pd.to_datetime(goals["competencia"] + "-01", errors="coerce")
+    return goals
 
 
 def _money(value: float) -> str:
@@ -463,14 +522,49 @@ def _period_bounds(
 ) -> tuple[date, date]:
     today = today_in_timezone(APP_SETTINGS.app_timezone)
     if period == "Ano atual":
-        return date(today.year, 1, 1), date(today.year, 12, 31)
+        return date(today.year, 1, 1), today
     if period == "Últimos 12 meses":
         start = (pd.Timestamp(today).to_period("M").start_time - pd.DateOffset(months=11)).date()
         return start, today
     dates = [value for frame in frames if not frame.empty for value in frame["data"].dropna().tolist()]
     if not dates:
         return date(today.year, 1, 1), today
-    return min(dates).date(), max(dates).date()
+    return min(dates).date(), min(max(dates).date(), today)
+
+
+def _period_delta(current: float, previous: float) -> str | None:
+    if previous == 0:
+        if current == 0:
+            return None
+        variation = 100.0
+    else:
+        variation = (current - previous) / abs(previous) * 100
+    sign = "+" if variation > 0 else ""
+    return f"{sign}{format_number_br(variation, 1)}% vs. período anterior"
+
+
+def _previous_period(start: date, end: date, period: str = "Personalizado") -> tuple[date, date]:
+    if period == "Ano atual":
+        return (
+            (pd.Timestamp(start) - pd.DateOffset(years=1)).date(),
+            (pd.Timestamp(end) - pd.DateOffset(years=1)).date(),
+        )
+    if period == "Últimos 12 meses":
+        return (
+            (pd.Timestamp(start) - pd.DateOffset(months=12)).date(),
+            (pd.Timestamp(end) - pd.DateOffset(months=12)).date(),
+        )
+    duration = end - start
+    previous_end = start - timedelta(days=1)
+    return previous_end - duration, previous_end
+
+
+def _filter_due_period(frame: pd.DataFrame, start: date, end: date) -> pd.DataFrame:
+    if frame.empty:
+        return frame
+    return frame[
+        frame["vencimento"].between(pd.Timestamp(start), pd.Timestamp(end), inclusive="both")
+    ].copy()
 
 
 def _go_to(page: str) -> Callable[[], None]:
@@ -491,7 +585,14 @@ def _render_quick_actions() -> None:
     second_row[1].button("Apropriar custo à obra", use_container_width=True, on_click=_go_to("Apropriacoes Custo"))
 
 
-def _render_overview(expenses: pd.DataFrame, revenue: pd.DataFrame, cash: pd.DataFrame) -> None:
+def _render_overview(
+    expenses: pd.DataFrame,
+    revenue: pd.DataFrame,
+    cash: pd.DataFrame,
+    previous_expenses: pd.DataFrame | None = None,
+    previous_revenue: pd.DataFrame | None = None,
+    previous_cash: pd.DataFrame | None = None,
+) -> None:
     gross = float(revenue["valor_bruto"].sum()) if not revenue.empty else 0.0
     net = float(revenue["valor_liquido"].sum()) if not revenue.empty else 0.0
     operating = expenses[expenses["natureza"] != "Investimento"] if not expenses.empty else expenses
@@ -504,14 +605,28 @@ def _render_overview(expenses: pd.DataFrame, revenue: pd.DataFrame, cash: pd.Dat
         cash_balance = float(cash.loc[cash["tipo"] == "entrada", "valor"].sum() - cash.loc[cash["tipo"] == "saida", "valor"].sum())
     margin = (result / net * 100) if net else 0.0
 
+    previous_expenses = previous_expenses if previous_expenses is not None else expenses.iloc[0:0]
+    previous_revenue = previous_revenue if previous_revenue is not None else revenue.iloc[0:0]
+    previous_cash = previous_cash if previous_cash is not None else cash.iloc[0:0]
+    previous_net = float(previous_revenue["valor_liquido"].sum()) if not previous_revenue.empty else 0.0
+    previous_operating = previous_expenses[previous_expenses["natureza"] != "Investimento"] if not previous_expenses.empty else previous_expenses
+    previous_costs = float(previous_operating["valor"].sum()) if not previous_operating.empty else 0.0
+    previous_result = previous_net - previous_costs
+    previous_cash_balance = 0.0
+    if not previous_cash.empty:
+        previous_cash_balance = float(
+            previous_cash.loc[previous_cash["tipo"] == "entrada", "valor"].sum()
+            - previous_cash.loc[previous_cash["tipo"] == "saida", "valor"].sum()
+        )
+
     first_row = st.columns(3)
     first_row[0].metric("Faturamento bruto", _money(gross), help="Total das notas/faturas antes de impostos e retenções.")
-    first_row[1].metric("Faturamento líquido", _money(net), help="Valor faturado depois de impostos e retenções.")
-    first_row[2].metric("Custos operacionais", _money(costs), help="Custos de obras, pessoal, manutenção, combustível e contas a pagar ainda não apropriadas.")
+    first_row[1].metric("Faturamento líquido", _money(net), delta=_period_delta(net, previous_net), help="Valor faturado depois de impostos e retenções.")
+    first_row[2].metric("Custos operacionais", _money(costs), delta=_period_delta(costs, previous_costs), delta_color="inverse", help="Custos de obras, pessoal, manutenção, combustível e contas a pagar ainda não apropriadas.")
     second_row = st.columns(3)
-    second_row[0].metric("Resultado", _money(result), delta=f"Margem {format_number_br(margin, 1)}%", help="Faturamento líquido menos custos operacionais.")
+    second_row[0].metric("Resultado", _money(result), delta=_period_delta(result, previous_result) or f"Margem {format_number_br(margin, 1)}%", help=f"Faturamento líquido menos custos operacionais. Margem atual: {format_number_br(margin, 1)}%.")
     second_row[1].metric("Investimentos", _money(investment_total), help="Compra de máquinas e veículos. É apresentada separadamente para não distorcer o lucro operacional.")
-    second_row[2].metric("Saldo de caixa", _money(cash_balance), help="Entradas recebidas menos saídas pagas. Não é o mesmo que lucro.")
+    second_row[2].metric("Saldo de caixa", _money(cash_balance), delta=_period_delta(cash_balance, previous_cash_balance), help="Entradas recebidas menos saídas pagas. Não é o mesmo que lucro.")
 
     st.subheader("Evolução mensal")
     series = build_economic_series(expenses, revenue)
@@ -642,6 +757,102 @@ def _render_cash(cash: pd.DataFrame) -> None:
     )
 
 
+def _render_obligations(payables: pd.DataFrame, receivables: pd.DataFrame, reference_date: date) -> None:
+    st.subheader("Contas e vencimentos")
+    st.caption("Acompanhe obrigações em aberto, atrasos e compromissos dos próximos 30 dias.")
+    reference = pd.Timestamp(reference_date)
+    next_30_days = reference + pd.Timedelta(days=30)
+
+    payables_open = payables[~payables["status"].isin(["pago", "cancelado"])] if not payables.empty else payables
+    receivables_open = receivables[~receivables["status"].isin(["recebido", "cancelado"])] if not receivables.empty else receivables
+    overdue_payables = payables_open[payables_open["vencimento"].lt(reference)] if not payables_open.empty else payables_open
+    overdue_receivables = receivables_open[receivables_open["vencimento"].lt(reference)] if not receivables_open.empty else receivables_open
+    upcoming_payables = payables_open[payables_open["vencimento"].between(reference, next_30_days, inclusive="both")] if not payables_open.empty else payables_open
+    upcoming_receivables = receivables_open[receivables_open["vencimento"].between(reference, next_30_days, inclusive="both")] if not receivables_open.empty else receivables_open
+
+    columns = st.columns(4)
+    columns[0].metric("A pagar em aberto", _money(float(payables_open["valor"].sum()) if not payables_open.empty else 0))
+    columns[1].metric("A receber em aberto", _money(float(receivables_open["valor"].sum()) if not receivables_open.empty else 0))
+    columns[2].metric("Pagamentos atrasados", _money(float(overdue_payables["valor"].sum()) if not overdue_payables.empty else 0), delta_color="inverse")
+    columns[3].metric("Recebimentos atrasados", _money(float(overdue_receivables["valor"].sum()) if not overdue_receivables.empty else 0), delta_color="inverse")
+
+    left, right = st.columns(2)
+    with left:
+        st.caption(f"A pagar até {next_30_days.strftime('%d/%m/%Y')}")
+        if upcoming_payables.empty:
+            st.info("Nenhum pagamento em aberto vence nos próximos 30 dias.")
+        else:
+            display = upcoming_payables[["vencimento", "descricao", "contraparte", "obra", "valor"]].sort_values("vencimento")
+            display = display.rename(columns={"vencimento": "Vencimento", "descricao": "Descrição", "contraparte": "Fornecedor", "obra": "Obra", "valor": "Valor"})
+            display["Valor"] = display["Valor"].map(format_currency_br)
+            st.dataframe(display, width="stretch", hide_index=True, column_config={"Vencimento": st.column_config.DateColumn(format="DD/MM/YYYY")})
+    with right:
+        st.caption(f"A receber até {next_30_days.strftime('%d/%m/%Y')}")
+        if upcoming_receivables.empty:
+            st.info("Nenhum recebimento em aberto vence nos próximos 30 dias.")
+        else:
+            display = upcoming_receivables[["vencimento", "descricao", "contraparte", "obra", "valor"]].sort_values("vencimento")
+            display = display.rename(columns={"vencimento": "Vencimento", "descricao": "Descrição", "contraparte": "Cliente", "obra": "Obra", "valor": "Valor"})
+            display["Valor"] = display["Valor"].map(format_currency_br)
+            st.dataframe(display, width="stretch", hide_index=True, column_config={"Vencimento": st.column_config.DateColumn(format="DD/MM/YYYY")})
+
+
+def _goal_actuals(expenses: pd.DataFrame, revenue: pd.DataFrame) -> dict[str, pd.DataFrame]:
+    billing = _monthly(revenue, "valor_liquido", "realizado").assign(codigo_indicador="FATURAMENTO")
+    operating = expenses[expenses["natureza"] != "Investimento"] if not expenses.empty else expenses
+    costs = _monthly(operating, "valor", "realizado").assign(codigo_indicador="CUSTO_OBRAS")
+    return {"FATURAMENTO": billing, "CUSTO_OBRAS": costs}
+
+
+def _render_goals(goals: pd.DataFrame, expenses: pd.DataFrame, revenue: pd.DataFrame, start: date, end: date) -> None:
+    st.subheader("Metas financeiras")
+    st.caption("Compare as metas cadastradas com o faturamento e os custos efetivamente registrados.")
+    if goals.empty:
+        st.info("Nenhuma meta financeira foi cadastrada.")
+        return
+    work = goals[
+        goals["competencia_data"].between(pd.Timestamp(start).to_period("M").start_time, pd.Timestamp(end).to_period("M").start_time, inclusive="both")
+        & goals["codigo_indicador"].isin(["FATURAMENTO", "CUSTO_OBRAS"])
+    ].copy()
+    if work.empty:
+        st.info("Não existem metas financeiras para o período selecionado.")
+        return
+
+    actuals = _goal_actuals(expenses, revenue)
+    rows: list[pd.DataFrame] = []
+    for code, frame in actuals.items():
+        goals_for_code = work[work["codigo_indicador"] == code].copy()
+        if goals_for_code.empty:
+            continue
+        merged = goals_for_code.merge(frame[["data", "realizado"]], left_on="competencia_data", right_on="data", how="left")
+        merged["realizado"] = merged["realizado"].fillna(0.0)
+        rows.append(merged)
+    if not rows:
+        st.info("As metas cadastradas não correspondem aos indicadores financeiros disponíveis.")
+        return
+    result = pd.concat(rows, ignore_index=True)
+    result["atingimento"] = result.apply(lambda row: row["realizado"] / row["valor_meta"] * 100 if row["valor_meta"] else 0.0, axis=1)
+    result["competencia"] = result["competencia_data"].dt.strftime("%m/%Y")
+    display = result[["competencia", "nome", "valor_meta", "realizado", "atingimento"]].rename(
+        columns={"competencia": "Competência", "nome": "Indicador", "valor_meta": "Meta", "realizado": "Realizado", "atingimento": "Atingimento"}
+    )
+    display["Meta"] = display["Meta"].map(format_currency_br)
+    display["Realizado"] = display["Realizado"].map(format_currency_br)
+    display["Atingimento"] = display["Atingimento"].map(lambda value: f"{format_number_br(value, 1)}%")
+    st.dataframe(display.sort_values(["Competência", "Indicador"], ascending=[False, True]), width="stretch", hide_index=True)
+
+
+def _render_accumulated_revenue(revenue: pd.DataFrame) -> None:
+    st.subheader("Faturamento acumulado")
+    series = _monthly(revenue, "valor_liquido", "Faturamento do mês")
+    if series.empty:
+        st.info("Ainda não há faturamento para montar o acumulado.")
+        return
+    series = _complete_months(series, ["Faturamento do mês"])
+    series["Faturamento acumulado"] = series["Faturamento do mês"].cumsum()
+    _render_monthly_line_chart(series.set_index("data")[["Faturamento acumulado"]], height=360)
+
+
 def _render_projection(expenses: pd.DataFrame, revenue: pd.DataFrame, cash: pd.DataFrame) -> None:
     st.subheader("Projeção financeira")
     st.caption("Escolha o indicador. A linha projetada estima os próximos seis meses a partir da tendência dos últimos registros.")
@@ -670,8 +881,11 @@ def _render_projection(expenses: pd.DataFrame, revenue: pd.DataFrame, cash: pd.D
     st.warning("Esta é uma estimativa linear para apoio à análise, não uma garantia. Orçamento, contratos, cronograma, sazonalidade e decisões comerciais devem ser considerados antes de tomar decisões.")
 
 
-def render_financial_area() -> None:
-    st.title("Área financeira")
+def render_financial_area(db: Session | None = None, embedded: bool = False) -> None:
+    if embedded:
+        st.header("Dashboard Financeiro e Fluxo de Caixa", anchor="dashboard-financeiro")
+    else:
+        st.title("Área financeira")
     st.write("Uma visão única de faturamento, custos, rentabilidade e caixa da UrbanPrime.")
     with st.expander("Como interpretar esta área", expanded=False):
         st.markdown(
@@ -683,17 +897,20 @@ def render_financial_area() -> None:
             """
         )
 
-    db = None
+    own_session = db is None
     try:
-        from src.core.database.connection import SessionLocal
+        if db is None:
+            from src.core.database.connection import SessionLocal
 
-        db = SessionLocal()
+            db = SessionLocal()
         expenses, revenue, cash = load_financial_data(db)
+        payables, receivables = load_obligations_data(db)
+        goals = load_goals_data(db)
     except Exception as exc:
         st.error(f"Não foi possível carregar a área financeira: {exc}")
         return
     finally:
-        if db is not None:
+        if own_session and db is not None:
             db.close()
 
     _render_quick_actions()
@@ -720,17 +937,33 @@ def render_financial_area() -> None:
         st.error("A data inicial precisa ser anterior à data final.")
         return
 
+    previous_start, previous_end = _previous_period(start, end, period)
+    previous_expenses = _filter_dimensions(_filter_period(expenses, previous_start, previous_end), selected_works, selected_clients)
+    previous_revenue = _filter_dimensions(_filter_period(revenue, previous_start, previous_end), selected_works, selected_clients)
+    previous_cash = _filter_dimensions(_filter_period(cash, previous_start, previous_end), selected_works, selected_clients)
     expenses = _filter_dimensions(_filter_period(expenses, start, end), selected_works, selected_clients)
     revenue = _filter_dimensions(_filter_period(revenue, start, end), selected_works, selected_clients)
     cash = _filter_dimensions(_filter_period(cash, start, end), selected_works, selected_clients)
+    obligations_payable = payables.copy()
+    obligations_receivable = receivables.copy()
+    if selected_works:
+        obligations_payable = obligations_payable[obligations_payable["obra"].isin(selected_works)]
+        obligations_receivable = obligations_receivable[obligations_receivable["obra"].isin(selected_works)]
+    if selected_clients:
+        obligations_receivable = obligations_receivable[obligations_receivable["contraparte"].isin(selected_clients)]
     if selected_categories:
         expenses = expenses[expenses["categoria"].isin(selected_categories)]
         cash = cash[cash["categoria"].isin(selected_categories)]
+        previous_expenses = previous_expenses[previous_expenses["categoria"].isin(selected_categories)]
+        previous_cash = previous_cash[previous_cash["categoria"].isin(selected_categories)]
+        obligations_payable = obligations_payable[obligations_payable["categoria"].isin(selected_categories)]
+        obligations_receivable = obligations_receivable[obligations_receivable["categoria"].isin(selected_categories)]
         st.caption("Com categorias selecionadas, o resultado compara todo o faturamento do recorte somente com os custos operacionais dessas categorias; investimentos permanecem separados.")
 
-    tabs = st.tabs(["Visão geral", "Rentabilidade", "Despesas", "Fluxo de caixa", "Projeções"])
+    tabs = st.tabs(["Visão geral", "Rentabilidade", "Despesas", "Fluxo de caixa", "Contas e vencimentos", "Metas", "Projeções"])
     with tabs[0]:
-        _render_overview(expenses, revenue, cash)
+        _render_overview(expenses, revenue, cash, previous_expenses, previous_revenue, previous_cash)
+        _render_accumulated_revenue(revenue)
     with tabs[1]:
         _render_profitability(expenses, revenue)
     with tabs[2]:
@@ -738,6 +971,10 @@ def render_financial_area() -> None:
     with tabs[3]:
         _render_cash(cash)
     with tabs[4]:
+        _render_obligations(obligations_payable, obligations_receivable, end)
+    with tabs[5]:
+        _render_goals(goals, expenses, revenue, start, end)
+    with tabs[6]:
         _render_projection(expenses, revenue, cash)
 
 
@@ -747,6 +984,11 @@ def render_dashboard_trends(db: Session) -> None:
     try:
         expenses, revenue, cash = load_financial_data(db)
         works = _prepare_frame(_query_frame(db, WORKS_SQL), ["quantidade"])
+        today = today_in_timezone(APP_SETTINGS.app_timezone)
+        expenses = _filter_period(expenses, date(1900, 1, 1), today)
+        revenue = _filter_period(revenue, date(1900, 1, 1), today)
+        cash = _filter_period(cash, date(1900, 1, 1), today)
+        works = _filter_period(works, date(1900, 1, 1), today)
         economic = build_economic_series(expenses, revenue)
         cash_series = build_cash_series(cash)
         works_series = _monthly(works, "quantidade", "Novas obras")
