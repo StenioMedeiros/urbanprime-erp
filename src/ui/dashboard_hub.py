@@ -20,6 +20,7 @@ from src.ui.financial_dashboard import (
     render_dashboard_trends,
     render_financial_area,
 )
+from src.ui.works_dashboard import render_works_dashboard
 
 
 APP_SETTINGS = get_settings()
@@ -48,7 +49,7 @@ DASHBOARD_CATALOG = (
     },
     {
         "name": "Obras e Engenharia",
-        "status": "planejado",
+        "status": "disponivel",
         "description": "Prazo, avanço físico, medições, orçamento e situação das obras.",
         "indicators": (
             "obras planejadas, em andamento, atrasadas e concluídas",
@@ -442,7 +443,7 @@ def _render_planned_dashboard(item: dict[str, Any]) -> None:
 
 def render_dashboard_hub(db: Session) -> str:
     st.title("Central de Dashboards")
-    st.write("Escolha a visão gerencial que deseja consultar. Os dois primeiros painéis estão concluídos nesta etapa.")
+    st.write("Escolha a visão gerencial que deseja consultar. Executivo, Financeiro e Obras e Engenharia estão disponíveis.")
     selected = st.selectbox(
         "Qual dashboard você quer visualizar?",
         dashboard_names(),
@@ -457,6 +458,8 @@ def render_dashboard_hub(db: Session) -> str:
         render_executive_dashboard(db)
     elif selected == "Financeiro e Fluxo de Caixa":
         render_financial_area(db=db, embedded=True)
+    elif selected == "Obras e Engenharia":
+        render_works_dashboard(db)
     else:
         _render_planned_dashboard(selected_item)
     return selected

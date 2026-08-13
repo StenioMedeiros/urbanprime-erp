@@ -37,13 +37,13 @@ O Dashboard é a central de acompanhamento gerencial do sistema. No topo da pág
 
 - **Executivo — disponível:** consolida faturamento, recebimentos, gastos, caixa, carteira de contratos, obras, quadro de funcionários, estoque, frota, tendências, projeções e pontos de atenção. Os indicadores comparam o período selecionado com o período imediatamente anterior.
 - **Financeiro e Fluxo de Caixa — disponível:** apresenta visão geral financeira, faturamento acumulado, rentabilidade, despesas, entradas e saídas, contas e vencimentos, metas e projeções. Pode ser filtrado por período, obra, cliente e categoria de despesa.
-- **Obras e Engenharia — próxima etapa:** reservado para prazo, avanço físico, medições, orçamento, chamados e revisões.
+- **Obras e Engenharia — disponível:** consolida situação das obras, avanço físico, responsáveis, crescimento da carteira, cronograma, prazos, orçamento, custos, medições, chamados técnicos e revisões de projeto. Possui filtros por período, obra, responsável e situação, ranking gerencial e alertas de inconsistência cadastral.
 - **Compras e Fornecedores — próxima etapa:** reservado para compras, cotações, fornecedores, prazos e economia.
 - **Estoque — próxima etapa:** reservado para valor armazenado, movimentações, consumo, giro e risco de falta.
 - **Frota e Maquinário — próxima etapa:** reservado para disponibilidade, utilização, manutenção, combustível e custos.
 - **Recursos Humanos — próxima etapa:** reservado para quadro de pessoal, folha, jornada, alocações e produtividade.
 
-As projeções e os alertas são análises transversais: aparecem dentro dos painéis Executivo e Financeiro, em vez de formar um painel setorial separado.
+As projeções e os alertas são análises transversais. Projeções aparecem nos painéis Executivo e Financeiro; alertas específicos de prazo, execução e qualidade de dados aparecem também em Obras e Engenharia.
 
 ### Funcionalidades
 

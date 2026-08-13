@@ -25,7 +25,8 @@ def test_dashboard_center_exposes_all_sector_views():
 def test_only_completed_dashboards_are_marked_as_available():
     assert dashboard_is_available("Executivo")
     assert dashboard_is_available("Financeiro e Fluxo de Caixa")
-    assert not dashboard_is_available("Obras e Engenharia")
+    assert dashboard_is_available("Obras e Engenharia")
+    assert not dashboard_is_available("Compras e Fornecedores")
 
 
 def test_executive_period_comparison_uses_equivalent_previous_months():
