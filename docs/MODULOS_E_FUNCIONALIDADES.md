@@ -40,10 +40,10 @@ O Dashboard é a central de acompanhamento gerencial do sistema. No topo da pág
 - **Obras e Engenharia — disponível:** consolida situação das obras, avanço físico, responsáveis, crescimento da carteira, cronograma, prazos, orçamento, custos, medições, chamados técnicos e revisões de projeto. Possui filtros por período, obra, responsável e situação, ranking gerencial e alertas de inconsistência cadastral.
 - **Compras e Fornecedores — disponível:** consolida ordens de compra, valores em processamento e recebidos, andamento por situação, compras por obra, cotações, economia negociada, itens e desempenho dos fornecedores. Possui filtros por período, fornecedor, obra e situação, ranking gerencial, concentração de compras, prazo médio de recebimento e alertas de inconsistência cadastral.
 - **Estoque — disponível:** apresenta saldos atuais, valor armazenado, estoque mínimo, entradas, saídas, consumo por obra, cobertura estimada, materiais sem movimentação e compras aguardando recebimento. Possui filtros por período, material, obra e tipo de movimentação, além de ranking gerencial e alertas de reposição.
-- **Frota e Maquinário — próxima etapa:** reservado para disponibilidade, utilização, manutenção, combustível e custos.
+- **Frota e Maquinário — disponível:** consolida disponibilidade, situação e valor dos ativos, horas utilizadas, alocação por obra, abastecimentos, manutenções e custos. Possui filtros por período, veículo ou equipamento, obra, tipo e situação atual, além de meta de disponibilidade, rankings de produtividade e alertas operacionais.
 - **Recursos Humanos — próxima etapa:** reservado para quadro de pessoal, folha, jornada, alocações e produtividade.
 
-As projeções e os alertas são análises transversais. Projeções aparecem nos painéis Executivo e Financeiro; alertas específicos de prazo, execução, estoque e qualidade de dados aparecem também em Obras e Engenharia, Compras e Fornecedores e Estoque.
+As projeções e os alertas são análises transversais. Projeções aparecem nos painéis Executivo e Financeiro; alertas específicos de prazo, execução, estoque, frota e qualidade de dados aparecem também em Obras e Engenharia, Compras e Fornecedores, Estoque e Frota e Maquinário.
 
 ### Funcionalidades
 
@@ -58,6 +58,9 @@ As projeções e os alertas são análises transversais. Projeções aparecem no
 - **Saúde do estoque:** compara o saldo atual com o estoque mínimo, calcula o valor armazenado e classifica cada material como adequado, sem saldo, abaixo do mínimo, em risco ou sem movimentação.
 - **Cobertura estimada:** utiliza as saídas registradas nos últimos 30 dias para estimar o saldo futuro e os dias até o estoque mínimo. Quando não há consumo recente, o painel informa que não existe base suficiente para a previsão.
 - **Movimentações e reposição:** apresenta entradas e saídas por período e obra, histórico detalhado e materiais vinculados a ordens de compra ainda abertas ou aprovadas.
+- **Disponibilidade e utilização da frota:** compara ativos disponíveis, em uso ou em manutenção, acompanha a meta mensal, horas trabalhadas, alocação por obra e ativos sem utilização recente.
+- **Custos da frota:** separa os desembolsos diretos de manutenção e combustível do custo apropriado pelas horas de utilização, evitando que os valores sejam somados duas vezes.
+- **Manutenções e alertas da frota:** apresenta histórico de serviços, tempo médio parado, abastecimentos e inconsistências de horímetro. Registros com data futura são avisados e não são tratados como realizados.
 - **Auditoria recente:** mostra as últimas atividades realizadas no sistema.
 
 ## 4. Administrativo e Segurança

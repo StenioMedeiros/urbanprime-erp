@@ -20,6 +20,7 @@ from src.ui.financial_dashboard import (
     render_dashboard_trends,
     render_financial_area,
 )
+from src.ui.fleet_dashboard import render_fleet_dashboard
 from src.ui.purchases_dashboard import render_purchases_dashboard
 from src.ui.stock_dashboard import render_stock_dashboard
 from src.ui.works_dashboard import render_works_dashboard
@@ -81,7 +82,7 @@ DASHBOARD_CATALOG = (
     },
     {
         "name": "Frota e Maquinário",
-        "status": "planejado",
+        "status": "disponivel",
         "description": "Disponibilidade, uso, manutenção e custo dos equipamentos.",
         "indicators": (
             "equipamentos disponíveis, em uso ou em manutenção",
@@ -445,7 +446,10 @@ def _render_planned_dashboard(item: dict[str, Any]) -> None:
 
 def render_dashboard_hub(db: Session) -> str:
     st.title("Central de Dashboards")
-    st.write("Escolha a visão gerencial que deseja consultar. Executivo, Financeiro, Obras e Engenharia, Compras e Fornecedores e Estoque estão disponíveis.")
+    st.write(
+        "Escolha a visão gerencial que deseja consultar. Executivo, Financeiro, Obras e Engenharia, "
+        "Compras e Fornecedores, Estoque e Frota e Maquinário estão disponíveis."
+    )
     selected = st.selectbox(
         "Qual dashboard você quer visualizar?",
         dashboard_names(),
@@ -466,6 +470,8 @@ def render_dashboard_hub(db: Session) -> str:
         render_purchases_dashboard(db)
     elif selected == "Estoque":
         render_stock_dashboard(db)
+    elif selected == "Frota e Maquinário":
+        render_fleet_dashboard(db)
     else:
         _render_planned_dashboard(selected_item)
     return selected
