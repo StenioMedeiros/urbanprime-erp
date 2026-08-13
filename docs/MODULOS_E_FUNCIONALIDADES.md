@@ -41,9 +41,9 @@ O Dashboard é a central de acompanhamento gerencial do sistema. No topo da pág
 - **Compras e Fornecedores — disponível:** consolida ordens de compra, valores em processamento e recebidos, andamento por situação, compras por obra, cotações, economia negociada, itens e desempenho dos fornecedores. Possui filtros por período, fornecedor, obra e situação, ranking gerencial, concentração de compras, prazo médio de recebimento e alertas de inconsistência cadastral.
 - **Estoque — disponível:** apresenta saldos atuais, valor armazenado, estoque mínimo, entradas, saídas, consumo por obra, cobertura estimada, materiais sem movimentação e compras aguardando recebimento. Possui filtros por período, material, obra e tipo de movimentação, além de ranking gerencial e alertas de reposição.
 - **Frota e Maquinário — disponível:** consolida disponibilidade, situação e valor dos ativos, horas utilizadas, alocação por obra, abastecimentos, manutenções e custos. Possui filtros por período, veículo ou equipamento, obra, tipo e situação atual, além de meta de disponibilidade, rankings de produtividade e alertas operacionais.
-- **Recursos Humanos — próxima etapa:** reservado para quadro de pessoal, folha, jornada, alocações e produtividade.
+- **Recursos Humanos — disponível:** consolida quadro de pessoal, admissões, desligamentos, jornada, folha de pagamento e distribuição das equipes. Possui filtros por período, funcionário, obra, setor, cargo e situação, além de evolução do quadro, custos da folha e alertas cadastrais.
 
-As projeções e os alertas são análises transversais. Projeções aparecem nos painéis Executivo e Financeiro; alertas específicos de prazo, execução, estoque, frota e qualidade de dados aparecem também em Obras e Engenharia, Compras e Fornecedores, Estoque e Frota e Maquinário.
+As projeções e os alertas são análises transversais. Projeções aparecem nos painéis Executivo e Financeiro; alertas específicos de prazo, execução, estoque, frota, recursos humanos e qualidade de dados aparecem também em Obras e Engenharia, Compras e Fornecedores, Estoque, Frota e Maquinário e Recursos Humanos.
 
 ### Funcionalidades
 
@@ -61,6 +61,10 @@ As projeções e os alertas são análises transversais. Projeções aparecem no
 - **Disponibilidade e utilização da frota:** compara ativos disponíveis, em uso ou em manutenção, acompanha a meta mensal, horas trabalhadas, alocação por obra e ativos sem utilização recente.
 - **Custos da frota:** separa os desembolsos diretos de manutenção e combustível do custo apropriado pelas horas de utilização, evitando que os valores sejam somados duas vezes.
 - **Manutenções e alertas da frota:** apresenta histórico de serviços, tempo médio parado, abastecimentos e inconsistências de horímetro. Registros com data futura são avisados e não são tratados como realizados.
+- **Quadro de pessoal:** acompanha funcionários ativos, admissões, desligamentos, crescimento mensal, setores e cargos. Funcionários sem data de admissão permanecem visíveis, mas são retirados somente do cálculo histórico do quadro.
+- **Jornada e ponto:** calcula horas registradas e média por jornada, destaca registros incompletos e apresenta uma estimativa das horas acima de oito horas. A falta de ponto não é classificada como ausência porque o sistema ainda não possui escala prevista, férias, feriados e afastamentos.
+- **Folha e custos de pessoal:** apresenta salários bruto e líquido, descontos, valores em aberto e evolução por competência. O salário-base é mantido separado da folha realizada para evitar dupla contagem.
+- **Equipes por obra:** mostra funcionários e custo-hora potencial por obra, histórico das alocações e alertas de registros ausentes. O custo-hora potencial não é tratado como custo realizado porque o ponto ainda não identifica a obra em que cada hora foi trabalhada.
 - **Auditoria recente:** mostra as últimas atividades realizadas no sistema.
 
 ## 4. Administrativo e Segurança

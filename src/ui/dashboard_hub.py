@@ -21,6 +21,7 @@ from src.ui.financial_dashboard import (
     render_financial_area,
 )
 from src.ui.fleet_dashboard import render_fleet_dashboard
+from src.ui.hr_dashboard import render_hr_dashboard
 from src.ui.purchases_dashboard import render_purchases_dashboard
 from src.ui.stock_dashboard import render_stock_dashboard
 from src.ui.works_dashboard import render_works_dashboard
@@ -92,7 +93,7 @@ DASHBOARD_CATALOG = (
     },
     {
         "name": "Recursos Humanos",
-        "status": "planejado",
+        "status": "disponivel",
         "description": "Quadro de pessoal, folha, jornada e alocação das equipes.",
         "indicators": (
             "funcionários ativos, admissões, desligamentos e crescimento do quadro",
@@ -448,7 +449,7 @@ def render_dashboard_hub(db: Session) -> str:
     st.title("Central de Dashboards")
     st.write(
         "Escolha a visão gerencial que deseja consultar. Executivo, Financeiro, Obras e Engenharia, "
-        "Compras e Fornecedores, Estoque e Frota e Maquinário estão disponíveis."
+        "Compras e Fornecedores, Estoque, Frota e Maquinário e Recursos Humanos estão disponíveis."
     )
     selected = st.selectbox(
         "Qual dashboard você quer visualizar?",
@@ -472,6 +473,8 @@ def render_dashboard_hub(db: Session) -> str:
         render_stock_dashboard(db)
     elif selected == "Frota e Maquinário":
         render_fleet_dashboard(db)
+    elif selected == "Recursos Humanos":
+        render_hr_dashboard(db)
     else:
         _render_planned_dashboard(selected_item)
     return selected
