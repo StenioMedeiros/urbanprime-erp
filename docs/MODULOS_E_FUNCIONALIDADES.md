@@ -38,12 +38,12 @@ O Dashboard é a central de acompanhamento gerencial do sistema. No topo da pág
 - **Executivo — disponível:** consolida faturamento, recebimentos, gastos, caixa, carteira de contratos, obras, quadro de funcionários, estoque, frota, tendências, projeções e pontos de atenção. Os indicadores comparam o período selecionado com o período imediatamente anterior.
 - **Financeiro e Fluxo de Caixa — disponível:** apresenta visão geral financeira, faturamento acumulado, rentabilidade, despesas, entradas e saídas, contas e vencimentos, metas e projeções. Pode ser filtrado por período, obra, cliente e categoria de despesa.
 - **Obras e Engenharia — disponível:** consolida situação das obras, avanço físico, responsáveis, crescimento da carteira, cronograma, prazos, orçamento, custos, medições, chamados técnicos e revisões de projeto. Possui filtros por período, obra, responsável e situação, ranking gerencial e alertas de inconsistência cadastral.
-- **Compras e Fornecedores — próxima etapa:** reservado para compras, cotações, fornecedores, prazos e economia.
+- **Compras e Fornecedores — disponível:** consolida ordens de compra, valores em processamento e recebidos, andamento por situação, compras por obra, cotações, economia negociada, itens e desempenho dos fornecedores. Possui filtros por período, fornecedor, obra e situação, ranking gerencial, concentração de compras, prazo médio de recebimento e alertas de inconsistência cadastral.
 - **Estoque — próxima etapa:** reservado para valor armazenado, movimentações, consumo, giro e risco de falta.
 - **Frota e Maquinário — próxima etapa:** reservado para disponibilidade, utilização, manutenção, combustível e custos.
 - **Recursos Humanos — próxima etapa:** reservado para quadro de pessoal, folha, jornada, alocações e produtividade.
 
-As projeções e os alertas são análises transversais. Projeções aparecem nos painéis Executivo e Financeiro; alertas específicos de prazo, execução e qualidade de dados aparecem também em Obras e Engenharia.
+As projeções e os alertas são análises transversais. Projeções aparecem nos painéis Executivo e Financeiro; alertas específicos de prazo, execução e qualidade de dados aparecem também em Obras e Engenharia e em Compras e Fornecedores.
 
 ### Funcionalidades
 
@@ -52,6 +52,9 @@ As projeções e os alertas são análises transversais. Projeções aparecem no
 - **Tendências:** permite acompanhar faturamento, lucro ou perda, saldo de caixa e crescimento da quantidade de obras ao longo do tempo, sem considerar lançamentos futuros como realizados.
 - **Projeções:** estima os próximos seis meses com base no histórico registrado. A projeção serve como apoio gerencial e não como garantia de resultado.
 - **Pontos de atenção:** destaca obras atrasadas, contas vencidas, materiais críticos e equipamentos em manutenção.
+- **Acompanhamento de compras:** apresenta ordens abertas, aprovadas e recebidas, valor aguardando recebimento, evolução mensal, compras por obra e ordens há mais de 30 dias sem recebimento.
+- **Desempenho dos fornecedores:** mostra participação no valor comprado, concentração nos maiores fornecedores, quantidade de cotações e ordens, valor em aberto e prazo médio de recebimento.
+- **Cotações e itens:** compara cotação e ordem vinculada, calcula a economia estimada e apresenta os itens adquiridos, mantendo os totais dos itens separados quando houver divergência cadastral.
 - **Auditoria recente:** mostra as últimas atividades realizadas no sistema.
 
 ## 4. Administrativo e Segurança
